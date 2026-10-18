@@ -48,6 +48,14 @@ EOF
     # Check we got the 580 branch with closed modules
     DRIVER_VERSION="$(rpm -q --queryformat '%{VERSION}' nvidia-driver)"
     [[ "${DRIVER_VERSION}" == 580.* ]] || { echo "ERROR: expected NVIDIA 580.x, got ${DRIVER_VERSION}" >&2; exit 1; }
+
+    # Rebuild the initramfs so it includes the NVIDIA modules (as Bluefin does for its
+    # NVIDIA images). simpledrm is disabled by the kargs above, so without this the
+    # boot-time disk unlock screen would have no display driver.
+    export DRACUT_NO_XATTR=1
+    dracut --no-hostonly --kver "${KERNEL}" --reproducible -v --add ostree -f "/lib/modules/${KERNEL}/initramfs.img"
+    chmod 0600 "/lib/modules/${KERNEL}/initramfs.img"
+    lsinitrd "/lib/modules/${KERNEL}/initramfs.img" | grep -E "nvidia(-drm)?\.ko" || { echo "ERROR: NVIDIA modules missing from initramfs" >&2; exit 1; }
     ;;
 *)
     echo "ERROR: unknown GPU variant '${GPU}'" >&2

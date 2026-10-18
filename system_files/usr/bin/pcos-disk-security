@@ -1,0 +1,148 @@
+#!/bin/bash
+# PC OS disk security: manage how the encrypted system drive (LUKS2) unlocks at boot.
+# See docs/DESIGN.md §4.2. Run from a terminal: sudo pcos-disk-security <command>
+#
+#   status             show encryption, TPM, Secure Boot and enrolled unlock methods
+#   tpm                unlock automatically with this PC's TPM (sealed to Secure Boot state, PCR 7)
+#   tpm-pin            TPM + a PIN typed at boot (recommended for laptops)
+#   fido2              unlock with a FIDO2 security key (touch + key PIN)
+#   recovery-key       create a new recovery key (replaces the old one) and show it once
+#   reseal             re-seal the TPM after a firmware/Secure Boot change (same as last tpm/tpm-pin choice)
+#   remove-tpm         stop TPM unlock
+#   remove-fido2       stop FIDO2 unlock
+#   remove-passphrase  remove the install-time passphrase (only once a recovery key and TPM/FIDO2 exist)
+
+set -euo pipefail
+
+# Testability overrides
+CMDLINE_FILE="${CMDLINE_FILE:-/proc/cmdline}"
+DISK_BY_UUID_DIR="${DISK_BY_UUID_DIR:-/dev/disk/by-uuid}"
+STATE_FILE="${STATE_FILE:-/var/lib/pcos/disk-security}"
+
+# LUKS UUID of the boot drive from rd.luks.uuid=<uuid> or rd.luks.name=luks-<uuid>=...
+luks_uuid() {
+    tr ' ' '\n' <"${CMDLINE_FILE}" |
+        grep -E '^rd\.luks\.(uuid|name)=' |
+        head -n1 |
+        cut -d= -f2 |
+        sed 's/^luks-//'
+}
+
+luks_device() {
+    local uuid
+    uuid=$(luks_uuid)
+    if [[ -z "${uuid}" ]]; then
+        echo "This system drive is not encrypted (no rd.luks.uuid on the kernel command line)." >&2
+        echo "Encryption is chosen during install: tick 'Encrypt my data' in Installation Destination." >&2
+        exit 1
+    fi
+    realpath "${DISK_BY_UUID_DIR}/${uuid}"
+}
+
+require_root() {
+    if [[ "${EUID}" -ne 0 ]]; then
+        echo "Run with sudo: sudo $(basename "$0") $*" >&2
+        exit 1
+    fi
+}
+
+has_tpm() {
+    systemd-cryptenroll --tpm2-device=list 2>/dev/null | grep -q '/dev/'
+}
+
+secure_boot_on() {
+    mokutil --sb-state 2>/dev/null | grep -q "SecureBoot enabled"
+}
+
+# Enrolled slot types, e.g. "password recovery tpm2"
+slot_types() {
+    systemd-cryptenroll "$1" 2>/dev/null | awk 'NR > 1 { print $2 }' | sort -u | tr '\n' ' '
+}
+
+has_slot() {
+    [[ " $(slot_types "$1") " == *" $2 "* ]]
+}
+
+remember() {
+    mkdir -p "$(dirname "${STATE_FILE}")"
+    echo "$1" >"${STATE_FILE}"
+}
+
+enroll_tpm() {
+    local dev="$1" pin="$2"
+    if ! has_tpm; then
+        echo "No TPM 2.0 chip found. Enable TPM/fTPM/PTT in the BIOS, or use: fido2" >&2
+        exit 1
+    fi
+    if ! secure_boot_on; then
+        echo "Warning: Secure Boot is off. The TPM seal will break when you turn it on (you'll need the recovery key once, then run reseal)." >&2
+    fi
+    local args=(--wipe-slot=tpm2 --tpm2-device=auto --tpm2-pcrs=7)
+    [[ "${pin}" == yes ]] && args+=(--tpm2-with-pin=yes)
+    echo "Enter an existing unlock passphrase or recovery key when asked."
+    systemd-cryptenroll "${args[@]}" "${dev}"
+    remember "tpm-pin=${pin}"
+    echo "Done: the drive will unlock with the TPM$([[ "${pin}" == yes ]] && echo " + PIN") at next boot."
+    has_slot "${dev}" recovery || echo "Reminder: create a recovery key too: sudo $(basename "$0") recovery-key"
+}
+
+cmd="${1:-status}"
+case "${cmd}" in
+status)
+    require_root "$@"
+    dev=$(luks_device)
+    echo "Encrypted drive:  ${dev} ($(cryptsetup luksDump "${dev}" | awk '/^Version:/ { print "LUKS" $2 }'))"
+    echo "TPM 2.0:          $(has_tpm && echo present || echo "not found")"
+    echo "Secure Boot:      $(secure_boot_on && echo on || echo off)"
+    echo "Unlock methods:   $(slot_types "${dev}")"
+    echo
+    systemd-cryptenroll "${dev}"
+    ;;
+tpm) require_root "$@"; enroll_tpm "$(luks_device)" no ;;
+tpm-pin) require_root "$@"; enroll_tpm "$(luks_device)" yes ;;
+reseal)
+    require_root "$@"
+    pin=no
+    [[ "$(cat "${STATE_FILE}" 2>/dev/null)" == "tpm-pin=yes" ]] && pin=yes
+    enroll_tpm "$(luks_device)" "${pin}"
+    ;;
+fido2)
+    require_root "$@"
+    dev=$(luks_device)
+    echo "Insert the security key. Enter an existing passphrase or recovery key, then the key's PIN, then touch it."
+    systemd-cryptenroll --fido2-device=auto --fido2-with-client-pin=yes --fido2-with-user-presence=yes "${dev}"
+    echo "Done. Repeat with your backup key so either one can unlock the drive."
+    ;;
+recovery-key)
+    require_root "$@"
+    dev=$(luks_device)
+    echo "A new recovery key will be shown ONCE. Write it down or print it and store it away from this PC."
+    echo "Any previous recovery key stops working."
+    read -r -p "Continue? [y/N] " answer
+    [[ "${answer}" =~ ^[Yy]$ ]] || exit 0
+    systemd-cryptenroll --wipe-slot=recovery --recovery-key "${dev}"
+    ;;
+remove-tpm) require_root "$@"; systemd-cryptenroll --wipe-slot=tpm2 "$(luks_device)"; rm -f "${STATE_FILE}" ;;
+remove-fido2) require_root "$@"; systemd-cryptenroll --wipe-slot=fido2 "$(luks_device)" ;;
+remove-passphrase)
+    require_root "$@"
+    dev=$(luks_device)
+    if ! has_slot "${dev}" recovery; then
+        echo "Refusing: create a recovery key first (recovery-key)." >&2
+        exit 1
+    fi
+    if ! has_slot "${dev}" tpm2 && ! has_slot "${dev}" fido2; then
+        echo "Refusing: enroll tpm, tpm-pin or fido2 first, or you'd only have the recovery key." >&2
+        exit 1
+    fi
+    echo "After this, the drive unlocks only with: $(slot_types "${dev}" | sed 's/password //')"
+    read -r -p "Remove the install-time passphrase? [y/N] " answer
+    [[ "${answer}" =~ ^[Yy]$ ]] || exit 0
+    systemd-cryptenroll --wipe-slot=password "${dev}"
+    ;;
+-h | --help | help) sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//' ;;
+*)
+    echo "Unknown command: ${cmd}. See: $(basename "$0") --help" >&2
+    exit 2
+    ;;
+esac

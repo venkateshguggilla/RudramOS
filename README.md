@@ -75,5 +75,17 @@ Switch variants by hand (signature-checked), if ever needed:
 sudo bootc switch --enforce-container-sigpolicy ghcr.io/venkateshguggilla/pcos-nvidia:latest
 ```
 
+## Disk encryption
+Tick **Encrypt my data** in the installer's **Installation Destination** and choose a passphrase. After the first login, set up how the drive unlocks:
+```bash
+sudo pcos-disk-security recovery-key
+```
+```bash
+sudo pcos-disk-security tpm
+```
+- `recovery-key`: shows a recovery key **once**. Write it down and keep it away from the PC. Without it, a failed TPM or motherboard means the data is lost.
+- `tpm`: unlocks automatically on this PC only, as long as Secure Boot is unchanged. Use `tpm-pin` to also type a PIN at boot (recommended for laptops), or `fido2` for a security key.
+- `status` shows what's set up. After a BIOS/firmware update asks for the recovery key, run `reseal`.
+
 ## Building the installer ISO
 GitHub → Actions → **Build PC OS installer ISO** → Run workflow (platform `amd64`, choose the **variant**). Download the `<variant>-anaconda-iso` artifact.

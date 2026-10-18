@@ -69,6 +69,7 @@ jobs:
         shell: bash
         run: |
           bash tests/test-gpu-detect.sh
+          bash tests/test-disk-security.sh
 
       - name: Image Name
         id: image-name

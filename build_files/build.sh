@@ -12,7 +12,7 @@ SIGNING_PUBKEY="/etc/pki/containers/pcos.pub"
 ### System files
 # Copy the contents of system_files/ in the git repo to /
 cp -avf "/ctx/system_files"/. /
-chmod 0755 /usr/bin/pcos-driver-assistant /usr/libexec/pcos/pcos-gpu-detect /usr/libexec/pcos/pcos-gpu-switch
+chmod 0755 /usr/bin/pcos-disk-security /usr/bin/pcos-driver-assistant /usr/libexec/pcos/pcos-gpu-detect /usr/libexec/pcos/pcos-gpu-switch
 
 ### Branding (Phase 1 basics; full branding in Phase 12)
 sed -i 's/^PRETTY_NAME=.*/PRETTY_NAME="PC OS"/' /usr/lib/os-release

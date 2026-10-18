@@ -140,7 +140,7 @@ They're signed with the **Universal Blue akmods key**, which Bluefin already shi
   | (Install passphrase) | Removed after TPM enrollment, or kept as the user chooses |
 - **Result:** if the drive is moved to another PC, the TPM there can't unseal it, so the drive is unreadable. If Secure Boot is turned off or the boot chain is changed, the TPM refuses to unseal and asks for the recovery key.
 - **Unlock options at first boot:** `TPM only` (default) / `TPM + PIN` (recommended for laptops) / `FIDO2 key`.
-- **Tooling:** `systemd-cryptenroll --tpm2-device=auto --tpm2-pcrs=7 [--tpm2-with-pin=yes]`, or `--fido2-device=auto`.
+- **Tooling:** `pcos-disk-security` (`status`, `tpm`, `tpm-pin`, `fido2`, `recovery-key`, `reseal`, `remove-*`), a wrapper around `systemd-cryptenroll --tpm2-device=auto --tpm2-pcrs=7 [--tpm2-with-pin=yes]` / `--fido2-device=auto`. The initramfs carries the `tpm2-tss`, `fido2` and `pkcs11` dracut modules, and systemd-cryptsetup picks up enrolled tokens automatically, so no extra kernel arguments are needed. Encryption is chosen in the installer (optional, recommended).
 - **Firmware updates** can change PCR values, so the update flow re-seals the key, with the recovery key as a fallback.
 
 ### 4.3 Admin approval modes (Standard / Strong)

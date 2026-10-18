@@ -67,12 +67,14 @@ Tracks B and C start on **Windows** (refactor + cross-platform UI) and don't dep
 ---
 
 ## Phase 3: Disk encryption and boot hardening (M)
-- [ ] The installer (kickstart in the ISO) sets up **LUKS2** (argon2id) for the whole system
-- [ ] First-boot script: `systemd-cryptenroll --tpm2-device=auto --tpm2-pcrs=7` (+ `--tpm2-with-pin` or `--fido2-device` options)
-- [ ] Generate the **recovery key** (`systemd-cryptenroll --recovery-key`) and show it once
-- [ ] Kernel arguments and sysctl hardening from DESIGN §4.6 (start conservative and test every app)
-- [ ] Re-seal flow after firmware updates
-- [ ] Document the BIOS password / no-USB-boot recommendation
+- [~] **LUKS2** for the whole system: chosen in the installer (Installation Destination → **Encrypt my data**); Fedora's installer uses LUKS2 + argon2id. Kept optional, not forced by kickstart (forced autopart could wipe the wrong disk)
+- [x] Unlock tool `pcos-disk-security`: `tpm` (sealed to PCR 7), `tpm-pin`, `fido2`, `status`; tests in `tests/test-disk-security.sh`
+- [x] **Recovery key**: `pcos-disk-security recovery-key` (shown once, replaces the old one); `remove-passphrase` refuses unless a recovery key + TPM/FIDO2 exist
+- [x] Initramfs includes TPM2/FIDO2 unlock (`90-pcos-unlock.conf`); legacy NVIDIA image now rebuilds its initramfs so the unlock screen has a display
+- [x] Conservative kernel arguments (`kargs.d/10-pcos-hardening.toml`) and sysctl hardening (`sysctl.d/60-pcos-hardening.conf`); network sysctls deferred to Phase 6
+- [x] Re-seal flow after firmware updates: `pcos-disk-security reseal`
+- [ ] Document the BIOS password / no-USB-boot recommendation (user guide, Phase 12)
+- [ ] GUI for all of this in Control Center (Phase 4)
 - [ ] *Stretch:* signed **UKI** + PCR 11 policy
 
 **Done when:**
