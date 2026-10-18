@@ -54,6 +54,10 @@ dnf5 install -y pam-u2f pamu2fcfg pamtester
 # sudo and polkit (all desktop admin prompts) authenticate through /etc/pam.d/pcos-admin,
 # which pcos-admin-mode switches between the Standard and Strong templates.
 for service in sudo polkit-1; do
+    # Fedora ships some PAM files only in the vendor dir; a copy in /etc/pam.d takes priority
+    if [[ ! -e "/etc/pam.d/${service}" && -e "/usr/lib/pam.d/${service}" ]]; then
+        cp -a "/usr/lib/pam.d/${service}" "/etc/pam.d/${service}"
+    fi
     sed -i -E 's/^auth([[:space:]]+)include([[:space:]]+)system-auth[[:space:]]*$/auth\1include\2pcos-admin/' "/etc/pam.d/${service}"
     if ! grep -qE '^auth[[:space:]]+include[[:space:]]+pcos-admin' "/etc/pam.d/${service}" ||
         grep -qE '^auth[[:space:]]+include[[:space:]]+system-auth' "/etc/pam.d/${service}"; then
