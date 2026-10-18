@@ -1,0 +1,24 @@
+---
+# Publishes ghcr.io/<owner>/pcos:unsigned-test WITHOUT a cosign signature.
+# Used to check that PC OS installs refuse unsigned images (Phase 1 check).
+# The label change gives it a new digest, so the signature of :latest can't match it.
+name: Publish unsigned test image
+on:
+  workflow_dispatch:
+
+jobs:
+  push:
+    name: Push unsigned test image
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Build and push
+        run: |
+          set -euxo pipefail
+          IMAGE="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/pcos"
+          echo "${{ secrets.GITHUB_TOKEN }}" | podman login ghcr.io -u "${{ github.actor }}" --password-stdin
+          printf 'FROM %s:latest\nLABEL pcos.test="unsigned"\n' "${IMAGE}" > Containerfile
+          podman build --pull=newer -t "${IMAGE}:unsigned-test" .
+          podman push "${IMAGE}:unsigned-test"
