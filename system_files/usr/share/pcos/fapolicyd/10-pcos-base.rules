@@ -1,0 +1,5 @@
+# RudramOS app approval (fapolicyd), docs/DESIGN.md §4.4. First matching rule wins.
+# Root and system services are never restricted
+allow perm=any uid=0 : all
+# Programs an admin approved with pcos-app-guard (trust = file, integrity = sha256)
+allow perm=execute all : trust=1

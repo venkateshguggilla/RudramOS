@@ -20,6 +20,8 @@ from . import status  # noqa: E402
 
 APP_ID = "org.pcos.Control"
 TERMINAL_RUN = "/usr/libexec/pcos/pcos-terminal-run"
+APP_GUARD = "/usr/bin/pcos-app-guard"
+BROWSER_EXTENSIONS = "/usr/bin/pcos-browser-extensions"
 GPU_SWITCH = "/usr/libexec/pcos/pcos-gpu-switch"
 
 
@@ -59,6 +61,7 @@ class Window(Adw.ApplicationWindow):
         self.groups: dict[str, list[Adw.PreferencesGroup]] = {}
         for name, title, icon in (
             ("security", "Security", "security-high-symbolic"),
+            ("apps", "Apps", "application-x-executable-symbolic"),
             ("disk", "Disk", "drive-harddisk-symbolic"),
             ("graphics", "Graphics", "video-display-symbolic"),
             ("system", "System", "computer-symbolic"),
@@ -94,6 +97,7 @@ class Window(Adw.ApplicationWindow):
         def load():
             data = {
                 "admin": status.admin_status(),
+                "apps": status.apps_status(),
                 "disk": status.disk_status(),
                 "graphics": status.graphics_status(),
                 "system": status.system_status(),
@@ -111,6 +115,7 @@ class Window(Adw.ApplicationWindow):
 
     def _apply(self, data) -> bool:
         self._set_groups("security", self._security(data["admin"]))
+        self._set_groups("apps", self._apps(data["apps"]))
         self._set_groups("disk", self._disk(data["disk"]))
         self._set_groups("graphics", self._graphics(data["graphics"]))
         self._set_groups("system", self._system(data["system"]))
@@ -149,6 +154,35 @@ class Window(Adw.ApplicationWindow):
         return [
             group("Admin protection", "How installs and system changes are approved.", [mode_row, *key_rows]),
             group("", "", actions),
+        ]
+
+    def _apps(self, s: status.AppsStatus) -> list[Adw.PreferencesGroup]:
+        state = {True: "On", False: "Off", None: "Unknown"}[s.approval_on]
+        approval = [
+            info_row("Installing apps", "Asks for admin approval (App Store and Flatpak)"),
+            info_row("Programs from Downloads, Desktop and USB drives", f"App approval: {state}. They run only after an admin approves them."),
+            button_row("Approve a program", "Pick a downloaded program or AppImage you trust.", "Choose…", self._choose_program),
+            button_row("Approved programs", "See or remove approvals.", "Show",
+                       lambda: run_in_terminal("Approved programs", "sudo", "pcos-app-guard", "list")),
+        ]
+        if s.approval_on is False:
+            approval.append(button_row("Turn app approval on", "Recommended.", "Turn on",
+                                       lambda: run_in_terminal("Turn on app approval", "sudo", "pcos-app-guard", "on"), suggested=True))
+        elif s.approval_on:
+            approval.append(button_row("Turn app approval off", "Downloaded programs would run without approval.", "Turn off",
+                                       lambda: run_in_terminal("Turn off app approval", "sudo", "pcos-app-guard", "off")))
+
+        entry = Adw.EntryRow(title="addons.mozilla.org link of an extension")
+        entry.set_show_apply_button(True)
+        entry.connect("apply", lambda e: self._approve_extension(e.get_text().strip()))
+        ext_rows: list[Gtk.Widget] = [info_row("uBlock Origin", "Always installed (blocks ads and trackers)")]
+        for ext_id, name in sorted(s.extensions.items(), key=lambda kv: kv[1].lower()):
+            ext_rows.append(button_row(name, ext_id, "Remove",
+                                       lambda i=ext_id: self._privileged([BROWSER_EXTENSIONS, "revoke", i], "Extension removed. Restart Firefox.")))
+        ext_rows.append(entry)
+        return [
+            group("App approval", "Like Gatekeeper on a Mac: you decide what runs.", approval),
+            group("Browser extensions", "Firefox can install only the extensions approved here. Paste a link and press Enter.", ext_rows),
         ]
 
     def _disk(self, s: status.DiskStatus) -> list[Adw.PreferencesGroup]:
@@ -233,6 +267,44 @@ class Window(Adw.ApplicationWindow):
             self.refresh()
 
         proc.wait_check_async(None, done)
+
+    def _privileged(self, argv: list[str], ok_text: str) -> None:
+        """Runs a RudramOS tool through pkexec (admin approval), then refreshes."""
+        proc = Gio.Subprocess.new(["pkexec", *argv], Gio.SubprocessFlags.STDERR_PIPE)
+
+        def done(p, result):
+            try:
+                _, _, err = p.communicate_utf8_finish(result)
+                ok = p.get_successful()
+            except GLib.Error as e:
+                ok, err = False, e.message
+            if ok:
+                self._toast(ok_text)
+            elif p.get_exit_status() not in (126, 127):  # 126/127: approval cancelled
+                self._toast((err or "Something went wrong.").strip().splitlines()[-1])
+            self.refresh()
+
+        proc.communicate_utf8_async(None, None, done)
+
+    def _approve_extension(self, link: str) -> None:
+        if link:
+            self._privileged([BROWSER_EXTENSIONS, "approve", link], "Extension approved. Restart Firefox to install it.")
+
+    def _choose_program(self) -> None:
+        dialog = Gtk.FileDialog(title="Choose a program to approve")
+        downloads = GLib.get_user_special_dir(GLib.UserDirectory.DIRECTORY_DOWNLOAD)
+        if downloads:
+            dialog.set_initial_folder(Gio.File.new_for_path(downloads))
+
+        def picked(d, result):
+            try:
+                f = d.open_finish(result)
+            except GLib.Error:
+                return  # cancelled
+            if f and f.get_path():
+                self._privileged([APP_GUARD, "approve", f.get_path()], f"Approved {f.get_basename()}. Open it again.")
+
+        dialog.open(self, None, picked)
 
     def _reboot(self) -> None:
         Gio.Subprocess.new(["systemctl", "reboot"], Gio.SubprocessFlags.NONE)

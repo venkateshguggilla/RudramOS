@@ -1,0 +1,21 @@
+// RudramOS: installing or removing apps needs admin approval (docs/DESIGN.md §4.4).
+// Fedora's flatpak package lets "wheel" users install without asking; this file sorts
+// first, so its answer wins. Approval is remembered for a few minutes (AUTH_ADMIN_KEEP),
+// so one app install that also pulls a runtime asks only once.
+// Updates of already-installed apps stay automatic.
+polkit.addRule(function (action, subject) {
+    var needsApproval = [
+        "org.freedesktop.Flatpak.app-install",
+        "org.freedesktop.Flatpak.runtime-install",
+        "org.freedesktop.Flatpak.app-uninstall",
+        "org.freedesktop.Flatpak.runtime-uninstall",
+        "org.freedesktop.Flatpak.modify-repo",
+        "org.freedesktop.Flatpak.configure-remote",
+        "org.freedesktop.Flatpak.configure",
+        "org.freedesktop.Flatpak.override-parental-controls"
+    ];
+    if (needsApproval.indexOf(action.id) >= 0) {
+        return polkit.Result.AUTH_ADMIN_KEEP;
+    }
+    return polkit.Result.NOT_HANDLED;
+});

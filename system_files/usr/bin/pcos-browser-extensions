@@ -1,0 +1,112 @@
+#!/bin/bash
+# RudramOS browser extension control (docs/DESIGN.md §4.5). Firefox may only install
+# extensions an admin approved here; uBlock Origin is always installed.
+#
+#   list                       approved extensions
+#   approve <addons.mozilla.org link | extension id> [install url]
+#                              approve an extension (installed automatically next time Firefox starts)
+#   revoke <extension id>      remove the approval (Firefox removes the extension)
+#   apply                      write Firefox's policy files (runs at boot)
+
+set -euo pipefail
+
+# Testability overrides
+BASE_POLICY="${BASE_POLICY:-/usr/share/pcos/firefox/policies.base.json}"
+APPROVED="${APPROVED:-/etc/pcos/browser-extensions.json}"
+# Flatpak Firefox reads /app/etc/firefox from this unmanaged extension; RPM Firefox reads /etc/firefox
+FLATPAK_POLICY="${FLATPAK_POLICY:-/var/lib/flatpak/extension/org.mozilla.firefox.systemconfig/$(uname -m)/stable/policies/policies.json}"
+RPM_POLICY="${RPM_POLICY:-/etc/firefox/policies/policies.json}"
+AMO_API="https://addons.mozilla.org/api/v5/addons/addon"
+
+die() {
+    echo "$*" >&2
+    exit 1
+}
+
+require_root() {
+    # PCOS_TEST_ROOT lets tests/test-browser-extensions.sh run without root
+    [[ "${EUID}" -eq 0 || "${PCOS_TEST_ROOT:-}" == 1 ]] || die "Run with sudo: sudo $(basename "$0") $*"
+}
+
+approved_json() {
+    if [[ -s "${APPROVED}" ]]; then cat "${APPROVED}"; else echo '{}'; fi
+}
+
+save_approved() {
+    mkdir -p "$(dirname "${APPROVED}")"
+    local tmp
+    tmp=$(mktemp)
+    cat >"${tmp}"
+    jq -e 'type == "object"' "${tmp}" >/dev/null || die "internal error: bad approved list"
+    install -m 0644 "${tmp}" "${APPROVED}"
+    rm -f "${tmp}"
+}
+
+apply() {
+    local merged
+    # Approved: { "<id>": { "name": ..., "install_url": ... } } -> ExtensionSettings entries
+    merged=$(jq --argjson approved "$(approved_json)" '
+        .policies.ExtensionSettings += ($approved | with_entries(.value = (
+            if .value.install_url
+            then { installation_mode: "normal_installed", install_url: .value.install_url }
+            else { installation_mode: "allowed" } end)))' "${BASE_POLICY}")
+    for out in "${FLATPAK_POLICY}" "${RPM_POLICY}"; do
+        mkdir -p "$(dirname "${out}")"
+        printf '%s\n' "${merged}" >"${out}.tmp"
+        chmod 0644 "${out}.tmp"
+        mv -f "${out}.tmp" "${out}"
+    done
+}
+
+# addons.mozilla.org link or slug -> "<id>\t<name>\t<install url>"
+lookup_amo() {
+    local slug="$1" info
+    slug="${slug%/}"
+    slug="${slug##*/addon/}"
+    slug="${slug%%/*}"
+    slug="${slug%%\?*}"
+    [[ "${slug}" =~ ^[A-Za-z0-9._@{}-]+$ ]] || die "Can't read an extension name from: $1"
+    info=$(curl -fsSL --max-time 20 "${AMO_API}/${slug}/") || die "Couldn't look up '${slug}' on addons.mozilla.org (check the link and the internet connection)."
+    jq -r --arg slug "${slug}" '[.guid, (.name | if type == "object" then (.["en-US"] // (to_entries[0].value)) else . end),
+        "https://addons.mozilla.org/firefox/downloads/latest/\($slug)/latest.xpi"] | @tsv' <<<"${info}" | tr -d '\r'
+}
+
+cmd="${1:-list}"
+shift || true
+case "${cmd}" in
+list)
+    approved_json | jq -r 'if length == 0 then "No extensions approved (uBlock Origin is always installed)."
+        else to_entries[] | "\(.key)\t\(.value.name // "")" end'
+    ;;
+approve)
+    require_root "${cmd}"
+    [[ $# -ge 1 ]] || die "usage: $(basename "$0") approve <addons.mozilla.org link | extension id> [install url]"
+    target="$1"
+    if [[ "${target}" == *addons.mozilla.org* || ! "${target}" =~ [@{] ]]; then
+        IFS=$'\t' read -r id name url < <(lookup_amo "${target}")
+    else
+        id="${target}"
+        name="${target}"
+        url="${2:-}"
+    fi
+    [[ -n "${id}" ]] || die "Couldn't find the extension id."
+    approved_json | jq --arg id "${id}" --arg name "${name}" --arg url "${url}" \
+        '.[$id] = ({ name: $name } + (if $url == "" then {} else { install_url: $url } end))' | save_approved
+    apply
+    echo "Approved: ${name} (${id}). Restart Firefox to install it."
+    ;;
+revoke)
+    require_root "${cmd}"
+    [[ $# -eq 1 ]] || die "usage: $(basename "$0") revoke <extension id>"
+    approved_json | jq -e --arg id "$1" 'has($id)' >/dev/null || die "Not approved: $1 (see: $(basename "$0") list)"
+    approved_json | jq --arg id "$1" 'del(.[$id])' | save_approved
+    apply
+    echo "Removed approval for $1. Restart Firefox."
+    ;;
+apply)
+    require_root "${cmd}"
+    apply
+    ;;
+-h | --help | help) sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//' ;;
+*) die "Unknown command: ${cmd}. See: $(basename "$0") --help" ;;
+esac

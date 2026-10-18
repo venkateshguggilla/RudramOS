@@ -110,16 +110,18 @@ Tracks B and C start on **Windows** (refactor + cross-platform UI) and don't dep
 ---
 
 ## Phase 5: App control + browser extension control (L)
-- [ ] polkit: system-wide Flatpak installs need admin approval; `--user` installs turned off
-- [ ] **Spike:** validate **fapolicyd** on bootc (rpm trust backend on ostree, trust rules for `/var/lib/flatpak/app`)
-- [ ] fapolicyd rules: block executables in `/home`, `/tmp`, `/var/tmp`, `/run/media`; `noexec` mounts
-- [ ] "Blocked program" notification → Control Center **Approved apps** page → `pcosd.TrustExecutable` (admin approval)
-- [ ] Firefox RPM + `/etc/firefox/policies/policies.json` (DESIGN §4.5), uBlock Origin force-installed
-- [ ] Control Center **Browser extensions** page → `pcosd.ApproveExtension` / `RevokeExtension`
-- [ ] Optional: Chromium policy equivalent
+- [x] Flatpak install/remove/repo changes need admin approval: `/etc/polkit-1/rules.d/00-pcos-flatpak.rules` (AUTH_ADMIN_KEEP), sorting before Fedora's rule that lets `wheel` install silently; updates stay automatic
+- [x] **App approval (Gatekeeper-style)** with fapolicyd, `trust = file`, `integrity = sha256`, RudramOS rules replace Fedora's strict defaults: programs in each user's **Downloads** and **Desktop**, on **USB drives**, and **user-level Flatpaks** run only after approval; everything else (system, Flatpaks, Steam games, Homebrew, dev tools) is untouched
+- [x] `pcos-app-guard` (`status`, `list`, `approve`, `revoke`, `on`, `off`, `regenerate-rules`); per-user rules generated at boot (`pcos-app-guard-rules.service`, honours localized XDG folders); tests `tests/test-app-guard.sh`
+- [x] "Program blocked" notification with **Approve…** (`pcos-app-guard-notify`, reads fapolicyd's journal; admin users)
+- [x] Firefox (Flatpak, via the `org.mozilla.firefox.systemconfig` extension dir, plus `/etc/firefox` for an RPM Firefox): all extensions blocked except approved ones; uBlock Origin always installed; telemetry off, strict tracking protection, HTTPS-only
+- [x] `pcos-browser-extensions` (`list`, `approve <AMO link | id>`, `revoke`, `apply`; looks the id up on addons.mozilla.org; approved ones install automatically); written at boot by `pcos-firefox-policy.service`; tests `tests/test-browser-extensions.sh`
+- [x] Control Center **Apps** page: approve a program (file picker), turn app approval on/off, approve/remove browser extensions by pasting a link; polkit actions `org.pcos.app-guard` and `org.pcos.browser-extensions`
+- [ ] Known gaps, documented: running a blocked file through an interpreter (`bash file.sh`, `python file.py`) or moving it to another folder first isn't blocked (same class of limit as macOS Gatekeeper); Chromium-family browsers not covered yet
 
 **Done when:**
 - [ ] a downloaded binary/AppImage is blocked; after approval it runs
+- [ ] installing a Flatpak from the App Store asks for admin approval
 - [ ] installing a Firefox extension directly is blocked with our message; after approval in Control Center it installs
 - [ ] in Strong mode both approvals need the key
 - [ ] no regressions: Flatpak apps, Steam, browsers, GNOME extensions still work

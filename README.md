@@ -97,6 +97,17 @@ sudo pcos-admin-mode strong
 
 **Lost all keys while in Strong mode** (not yet tested end to end): boot the RudramOS installer USB, press **Ctrl+Alt+F2** for a root shell, unlock the drive with the recovery key (`cryptsetup open /dev/<partition> sysroot`), mount it, and copy `/usr/share/pcos/pam/pcos-admin.standard` over `ostree/deploy/default/deploy/<current>/etc/pam.d/pcos-admin`.
 
+## Apps and browser extensions
+- **Installing apps** (App Store or `flatpak install`) asks for admin approval. Updates stay automatic.
+- **Downloaded programs** (in Downloads, on the Desktop or on a USB drive) don't run until approved, like Gatekeeper on a Mac. When one is blocked, a notification offers **Approve…**. You can also approve from Control Center → **Apps**, or:
+  ```bash
+  sudo pcos-app-guard approve ~/Downloads/SomeApp.AppImage
+  ```
+- **Firefox extensions** install only if approved. uBlock Origin is always installed. Approve one by pasting its addons.mozilla.org link in Control Center → **Apps**, or:
+  ```bash
+  sudo pcos-browser-extensions approve https://addons.mozilla.org/firefox/addon/bitwarden-password-manager/
+  ```
+
 ## Disk encryption
 Tick **Encrypt my data** in the installer's **Installation Destination** and choose a passphrase. After the first login, set up how the drive unlocks:
 ```bash

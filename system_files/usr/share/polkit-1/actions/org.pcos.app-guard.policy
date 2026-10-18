@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC
+ "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+<policyconfig>
+  <vendor>RudramOS</vendor>
+
+  <!-- App approval and browser extension changes: always need admin approval
+       (password, or password + security key in Strong mode). -->
+  <action id="org.pcos.app-guard">
+    <description>Approve a program</description>
+    <message>Authentication is required to allow this program to run</message>
+    <icon_name>security-high</icon_name>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/bin/pcos-app-guard</annotate>
+  </action>
+
+  <action id="org.pcos.browser-extensions">
+    <description>Change approved browser extensions</description>
+    <message>Authentication is required to change which browser extensions can be installed</message>
+    <icon_name>web-browser</icon_name>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/bin/pcos-browser-extensions</annotate>
+  </action>
+</policyconfig>

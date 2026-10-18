@@ -106,6 +106,26 @@ class StatusTests(unittest.TestCase):
         self.assertEqual(s.booted_image, "")
         self.assertEqual(s.staged_image, "")
 
+    def test_apps_on_with_extensions(self):
+        ext = self.write("ext.json", json.dumps({
+            "{446900e4-71c2-419f-a6a7-df9c091e268b}": {"name": "Bitwarden", "install_url": "https://x"},
+            "example@ext.test": {"name": ""},
+        }))
+        s = status.apps_status(ext, run=fake_run({"systemctl": "active\n"}))
+        self.assertTrue(s.approval_on)
+        self.assertEqual(s.extensions["{446900e4-71c2-419f-a6a7-df9c091e268b}"], "Bitwarden")
+        self.assertEqual(s.extensions["example@ext.test"], "example@ext.test")
+
+    def test_apps_off_and_bad_json(self):
+        ext = self.write("ext.json", "not json")
+        s = status.apps_status(ext, run=fake_run({"systemctl": "inactive\n"}))
+        self.assertFalse(s.approval_on)
+        self.assertEqual(s.extensions, {})
+
+    def test_apps_unknown_without_systemctl(self):
+        s = status.apps_status(os.path.join(self.dir.name, "missing.json"), run=fake_run({}))
+        self.assertIsNone(s.approval_on)
+
     def test_timeout_is_handled(self):
         def slow(*_a, **_k):
             raise subprocess.TimeoutExpired("rpm-ostree", 30)

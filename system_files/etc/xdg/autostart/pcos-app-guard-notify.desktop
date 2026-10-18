@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=RudramOS App Approval
+Comment=Notifies when a program is blocked and offers to approve it
+Exec=/usr/libexec/pcos/pcos-app-guard-notify
+Icon=security-high
+NoDisplay=true
+X-GNOME-Autostart-enabled=true

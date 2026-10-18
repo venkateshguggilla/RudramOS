@@ -1,0 +1,5 @@
+# RudramOS app approval: removable drives, then allow everything else.
+# (Per-user Downloads/Desktop/user-Flatpak rules are generated into 50-pcos-users.rules.)
+deny_syslog perm=execute all : dir=/run/media/
+deny_syslog perm=execute all : dir=/media/
+allow perm=any all : all

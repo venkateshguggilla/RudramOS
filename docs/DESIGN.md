@@ -163,16 +163,16 @@ Every privileged action goes through **one shared PAM include**, `/etc/pam.d/pco
 
 ### 4.4 App control (Gatekeeper equivalent)
 - **Flatpak installs/removals** are system-wide and need admin approval through polkit (`org.freedesktop.Flatpak.*`). User-level (`--user`) installs are turned off by polkit rule.
-- **fapolicyd** application allowlisting:
-  - Trusted: everything in the image (rpmdb), deployed Flatpak apps under `/var/lib/flatpak`
-  - Blocked by default: executables in `/home`, `/tmp`, `/var/tmp`, `/run/media` (USB)
-  - **"Allow this app"** flow: a blocked launch produces a notification → Control Center shows the file, its location and hash → admin approval → added to the fapolicyd trust database (`fapolicyd-cli --file add`)
-  - ⚠️ *Needs validation:* how fapolicyd's rpm trust backend behaves on bootc/ostree, and the trust rules for the Flatpak deploy folder (see Roadmap phase 5 spike).
-- **`noexec`** on `/tmp`, `/var/tmp` and removable media as an extra layer.
+- **fapolicyd** app approval (implemented in Phase 5, `pcos-app-guard`):
+  - Blocked until approved: programs in each user's **Downloads** and **Desktop** (localized XDG names honoured), on **USB drives** (`/run/media`, `/media`), and **user-level Flatpaks** (`~/.local/share/flatpak`, which closes the "install without approval" gap)
+  - Everything else runs normally: system programs, system Flatpaks, Steam games, Homebrew and developer tools. A strict "only trusted binaries anywhere" policy was rejected because it breaks games and dev tools, and the user asked for Mac-like freedom.
+  - `trust = file` (approved files only; no rpmdb dependency on ostree), `integrity = sha256` (an approved file that changes needs approving again); root is never restricted
+  - **"Allow this app"** flow: a blocked launch produces a notification with **Approve…** → admin approval (pkexec) → `fapolicyd-cli --file add` to `trust.d/pcos-approved`. Also from Control Center → Apps (file picker) or `sudo pcos-app-guard approve <file>`
+  - Known limits (like macOS Gatekeeper): running a file through an interpreter (`bash x.sh`, `python x.py`) or moving it to another folder first bypasses the check
 - **SELinux** stays enforcing. Toolbox/distrobox/podman are kept for the admin, and developers can enable them.
 
 ### 4.5 Browser extension control
-- **Firefox (RPM in the image)** is managed by `/etc/firefox/policies/policies.json`:
+- **Firefox** (Bluefin ships it as a Flatpak) is managed through the `org.mozilla.firefox.systemconfig` Flatpak extension directory (`/var/lib/flatpak/extension/org.mozilla.firefox.systemconfig/<arch>/stable/policies/policies.json`, root-owned), plus `/etc/firefox/policies/policies.json` for an RPM Firefox. `pcos-browser-extensions apply` writes both at boot from `/usr/share/pcos/firefox/policies.base.json` + the approved list `/etc/pcos/browser-extensions.json`:
   ```json
   {
     "policies": {

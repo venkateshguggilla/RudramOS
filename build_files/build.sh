@@ -12,7 +12,7 @@ SIGNING_PUBKEY="/etc/pki/containers/pcos.pub"
 ### System files
 # Copy the contents of system_files/ in the git repo to /
 cp -avf "/ctx/system_files"/. /
-chmod 0755 /usr/bin/pcos-control /usr/libexec/pcos/pcos-terminal-run /usr/bin/pcos-admin-mode /usr/bin/pcos-disk-security /usr/bin/pcos-driver-assistant /usr/libexec/pcos/pcos-gpu-detect /usr/libexec/pcos/pcos-gpu-switch
+chmod 0755 /usr/bin/pcos-app-guard /usr/bin/pcos-browser-extensions /usr/libexec/pcos/pcos-app-guard-notify /usr/bin/pcos-control /usr/libexec/pcos/pcos-terminal-run /usr/bin/pcos-admin-mode /usr/bin/pcos-disk-security /usr/bin/pcos-driver-assistant /usr/libexec/pcos/pcos-gpu-detect /usr/libexec/pcos/pcos-gpu-switch
 
 ### Branding (Phase 1 basics; full branding in Phase 12)
 sed -i 's/^PRETTY_NAME=.*/PRETTY_NAME="RudramOS"/' /usr/lib/os-release
@@ -71,6 +71,24 @@ done
 install -m 0644 -o root -g root /dev/null /etc/u2f_mappings
 mkdir -p /etc/pcos
 echo standard > /etc/pcos/admin-mode
+
+### App approval (Gatekeeper-style) with fapolicyd (docs/DESIGN.md §4.4)
+# Only programs in Downloads, Desktop, on USB drives and user-level Flatpaks need approval;
+# fapolicyd's strict Fedora default rules are replaced by RudramOS rules.
+dnf5 install -y fapolicyd
+rm -f /etc/fapolicyd/rules.d/*.rules
+install -m 0644 /usr/share/pcos/fapolicyd/10-pcos-base.rules /usr/share/pcos/fapolicyd/90-pcos-final.rules /etc/fapolicyd/rules.d/
+FAPOLICYD_CONF=/etc/fapolicyd/fapolicyd.conf
+sed -i -E 's/^trust[[:space:]]*=.*/trust = file/; s/^integrity[[:space:]]*=.*/integrity = sha256/' "${FAPOLICYD_CONF}"
+sed -i -E 's/^watch_fs[[:space:]]*=.*/watch_fs = ext2,ext3,ext4,tmpfs,xfs,vfat,iso9660,btrfs,exfat,ntfs3/' "${FAPOLICYD_CONF}"
+grep -qx 'trust = file' "${FAPOLICYD_CONF}" && grep -qx 'integrity = sha256' "${FAPOLICYD_CONF}" ||
+    { echo "ERROR: could not configure ${FAPOLICYD_CONF}" >&2; cat "${FAPOLICYD_CONF}" >&2; exit 1; }
+mkdir -p /etc/fapolicyd/trust.d
+touch /etc/fapolicyd/trust.d/pcos-approved
+systemctl enable fapolicyd.service pcos-app-guard-rules.service
+
+### Browser extension control (docs/DESIGN.md §4.5)
+systemctl enable pcos-firefox-policy.service
 
 ### Check the Control Center loads (imports GTK/Adw, no display needed)
 python3 -B -c 'import sys; sys.path.insert(0, "/usr/lib/pcos-control"); import pcos_control.app'

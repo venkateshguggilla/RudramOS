@@ -1,0 +1,10 @@
+[Unit]
+Description=RudramOS: write Firefox extension policy (approved extensions only)
+After=local-fs.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/pcos-browser-extensions apply
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,33 @@
+#!/bin/bash
+# RudramOS app approval: shows a notification when a program of this user is blocked,
+# with an "Approve" button (admin approval through pkexec). Runs in the desktop session.
+# Reads fapolicyd's journal lines, which admin (wheel) users can read.
+
+set -uo pipefail
+
+me=$(id -u)
+declare -A last_seen
+
+# Example line: rule=4 dec=deny_syslog perm=execute auid=1000 pid=4242 exe=/usr/bin/nautilus : path=/var/home/a/Downloads/x ftype=... trust=0
+journalctl --follow --lines=0 --output=cat --identifier=fapolicyd 2>/dev/null |
+    while IFS= read -r line; do
+        [[ "${line}" == *"dec=deny"* ]] || continue
+        [[ "${line}" =~ auid=([0-9]+) ]] && [[ "${BASH_REMATCH[1]}" == "${me}" ]] || continue
+        [[ "${line}" =~ \ path=(.+)\ ftype= ]] || continue
+        path="${BASH_REMATCH[1]}"
+        now=$(date +%s)
+        # One notification per file per minute
+        (( now - ${last_seen[${path}]:-0} < 60 )) && continue
+        last_seen[${path}]=${now}
+
+        (
+            choice=$(notify-send --app-name="RudramOS" --icon=security-high --wait \
+                --action=approve="Approve…" --action=ignore="Keep blocked" \
+                "Program blocked" "$(basename "${path}") isn't approved to run. Only approve programs from sources you trust.")
+            if [[ "${choice}" == approve ]]; then
+                if pkexec /usr/bin/pcos-app-guard approve "${path}"; then
+                    notify-send --app-name="RudramOS" --icon=security-high "Program approved" "$(basename "${path}") can run now. Open it again."
+                fi
+            fi
+        ) &
+    done

@@ -71,6 +71,8 @@ jobs:
           bash tests/test-gpu-detect.sh
           bash tests/test-disk-security.sh
           bash tests/test-admin-mode.sh
+          bash tests/test-app-guard.sh
+          bash tests/test-browser-extensions.sh
           python3 -m unittest discover -s tests -p "test_*.py" -v
 
       - name: Image Name

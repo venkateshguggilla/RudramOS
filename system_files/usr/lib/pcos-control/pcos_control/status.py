@@ -44,6 +44,12 @@ class SystemStatus:
     staged_image: str  # "" when no update is waiting for a restart
 
 
+@dataclass
+class AppsStatus:
+    approval_on: bool | None  # app approval (fapolicyd) running; None = unknown
+    extensions: dict[str, str] = field(default_factory=dict)  # approved browser extension id -> name
+
+
 def _read(path: str, default: str = "") -> str:
     try:
         with open(path, encoding="utf-8") as f:
@@ -87,6 +93,23 @@ def graphics_status(
     except (OSError, subprocess.SubprocessError):
         wanted, gpu_name, reason = installed, "unknown", "detection failed"
     return GraphicsStatus(gpu_name=gpu_name, wanted=wanted or installed, reason=reason, installed=installed)
+
+
+def apps_status(extensions_file: str = "/etc/pcos/browser-extensions.json", run=subprocess.run) -> AppsStatus:
+    approval_on: bool | None
+    try:
+        state = run(["systemctl", "is-active", "fapolicyd"], capture_output=True, text=True, timeout=10).stdout.strip()
+        approval_on = state == "active"
+    except (OSError, subprocess.SubprocessError):
+        approval_on = None
+    extensions: dict[str, str] = {}
+    try:
+        data = json.loads(_read(extensions_file) or "{}")
+        if isinstance(data, dict):
+            extensions = {k: (v.get("name") or k) if isinstance(v, dict) else k for k, v in data.items()}
+    except ValueError:
+        pass
+    return AppsStatus(approval_on=approval_on, extensions=extensions)
 
 
 def _image_name(ref: str) -> str:
