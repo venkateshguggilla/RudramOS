@@ -19,30 +19,32 @@ Tracks B and C start on **Windows** (refactor + cross-platform UI) and don't dep
 
 ## Phase 0: Preparation (S)
 - [ ] Choose a working name (can change later)
-- [ ] Create a GitHub repository for `PC_OS` and enable GitHub Actions + GitHub Container Registry (ghcr.io)
+- [x] Create a GitHub repository for `PC_OS` and enable GitHub Actions + GitHub Container Registry (ghcr.io)
 - [ ] Turn on 2FA for GitHub (preferably with a FIDO2 key)
 - [ ] **Buy 2 FIDO2 keys** (e.g. 2× YubiKey 5 or 2× Nitrokey 3) and set a PIN on each
-- [ ] Enable **Hyper-V** on Windows 10 Pro, and create a Gen 2 VM template with **Secure Boot ("Microsoft UEFI Certificate Authority" template) + virtual TPM**, 4 vCPU, 8 GB RAM, 64 GB disk
+- [x] Enable **Hyper-V** on Windows 10 Pro, and create a Gen 2 VM template with **Secure Boot ("Microsoft UEFI Certificate Authority" template) + virtual TPM**, 4 vCPU, 8 GB RAM, 64 GB disk
 - [ ] Optional: install WSL2 + Podman for local image builds (CI is the main build path)
-- [ ] Install `cosign` and generate the **image signing key pair**: public key → `keys/cosign.pub`, private key → GitHub secret + offline backup
+- [x] Install `cosign` and generate the **image signing key pair**: public key → `keys/cosign.pub`, private key → GitHub secret + offline backup
+
+**Notes:** the repo is private (installed PCs need a `read:packages` token in `/etc/ostree/auth.json`); VMs live on the external SSD at `D:\PC_OS\VMs`.
 
 **Done when:** the repo exists, the VM template boots a stock Fedora ISO with Secure Boot on, and the cosign keys are stored safely.
 
 ---
 
 ## Phase 1: Minimal signed image (M)
-- [ ] Start from the Universal Blue `image-template`. Create `image/Containerfile` `FROM ghcr.io/ublue-os/bluefin:stable` (or `base-main`)
-- [ ] Add PC OS branding basics: `/etc/os-release` name, wallpaper, logo
-- [ ] GitHub Actions workflow: build → **cosign sign** → push `ghcr.io/<you>/pcos:latest` + dated tags
-- [ ] Workflow to build an **installer ISO** with `bootc-image-builder`
-- [ ] Container signature policy in the image (`/etc/containers/policy.json` + `registries.d`) so the PC **only accepts our signed images**
-- [ ] Automatic update timer (`bootc upgrade`, applied at reboot)
+- [x] Start from the Universal Blue `image-template`. Create `Containerfile` `FROM ghcr.io/ublue-os/bluefin:stable` (or `base-main`)
+- [~] Add PC OS branding basics: `/etc/os-release` name (done), wallpaper, logo (Phase 12)
+- [x] GitHub Actions workflow: build → **cosign sign** → push `ghcr.io/<you>/pcos:latest` + dated tags
+- [x] Workflow to build an **installer ISO** with `bootc-image-builder`
+- [x] Container signature policy in the image (`/etc/containers/policy.json` + `registries.d`) so the PC **only accepts our signed images**
+- [x] Automatic update timer (provided by Bluefin's `uupd.timer`)
 
 **Done when:**
-- [ ] the ISO installs in the Hyper-V VM and boots to GNOME
-- [ ] pushing a change to Git produces a new image, and the VM updates to it after a reboot
+- [x] the ISO installs in the Hyper-V VM and boots to GNOME
+- [x] pushing a change to Git produces a new image, and the VM updates to it after a reboot
 - [ ] `bootc rollback` returns to the previous version
-- [ ] an unsigned image is **refused** on update
+- [x] an unsigned image is **refused** on update (tested with `:unsigned-test`, 2026-10-18)
 
 ---
 
