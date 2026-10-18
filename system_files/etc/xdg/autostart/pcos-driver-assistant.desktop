@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=PC OS Driver Assistant
+Comment=Checks the graphics hardware and offers the matching driver
+Exec=/usr/bin/pcos-driver-assistant
+Icon=video-display
+NoDisplay=true
+X-GNOME-Autostart-enabled=true
+X-GNOME-Autostart-Delay=20

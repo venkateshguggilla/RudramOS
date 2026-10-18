@@ -37,8 +37,8 @@ Built from the [Universal Blue image-template](https://github.com/ublue-os/image
 2. Add the private signing key as a repository secret named `SIGNING_SECRET` (the contents of `cosign.key`).
 3. Back up `cosign.key` offline (e.g. an encrypted USB drive), then delete it from this folder. **Never commit it.**
 
-## Private image: letting a PC download updates
-The repository and the `pcos` image on ghcr.io are **private**, so each installed PC must log in to ghcr.io to pull updates:
+## If the images are private: letting a PC download updates
+Only needed while the images on ghcr.io are **private**. Once they are public, PCs download updates and drivers without logging in. While private, each installed PC must log in to ghcr.io:
 1. Create a GitHub **classic personal access token** with only the `read:packages` scope (no expiry, or set a reminder to renew it).
 2. On the installed PC, run:
    ```bash
@@ -63,13 +63,14 @@ The token can only read packages, so a leaked token can't change the repo or pub
 | `pcos-nvidia` | NVIDIA RTX 20/30/40/50 and GTX 16 series (e.g. RTX 3060) |
 | `pcos-nvidia-legacy` | NVIDIA GTX 10 series and older Pascal/Maxwell (e.g. GTX 1050 Ti), 580 LTS driver |
 
-**NVIDIA with Secure Boot:** after installing an NVIDIA variant, enroll the driver signing key once, then reboot:
-```bash
-ujust enroll-secure-boot-key
-```
-On reboot a blue **MOK Manager** screen appears: choose **Enroll MOK → Continue → Yes**, enter the password `universalblue`, then **Reboot**. Check the driver with `nvidia-smi`.
+**Use the standard `pcos` ISO on every PC.** After the first login, the **Driver Assistant** detects the graphics card and, if it's NVIDIA, offers to install the right driver (admin approval, download, restart). On Secure Boot PCs a blue **MOK Manager** screen appears once after that restart: choose **Enroll MOK → Continue → Yes**, enter `universalblue`, then **Reboot**. Check with `nvidia-smi`.
 
-Switch an existing install to another variant (signature-checked):
+Check what was detected, from a terminal:
+```bash
+pcos-driver-assistant --check
+```
+
+Switch variants by hand (signature-checked), if ever needed:
 ```bash
 sudo bootc switch --enforce-container-sigpolicy ghcr.io/venkateshguggilla/pcos-nvidia:latest
 ```

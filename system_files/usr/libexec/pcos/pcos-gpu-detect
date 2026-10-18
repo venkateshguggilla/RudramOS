@@ -1,0 +1,61 @@
+#!/bin/bash
+# Detects the graphics hardware and prints which PC OS image variant it needs.
+#
+# Output (one line, tab-separated):  <variant>\t<gpu name>\t<reason>
+#   variant: pcos | pcos-nvidia | pcos-nvidia-legacy
+#
+# NVIDIA chips are classified by PCI device ID, which NVIDIA assigns per chip generation:
+#   0x1E00 and up    Turing and newer (RTX 20/30/40/50, GTX 16)  -> open kernel modules (pcos-nvidia)
+#   0x1340 - 0x1DFF  Maxwell, Pascal, Volta (GTX 750 - GTX 10)   -> 580 LTS driver (pcos-nvidia-legacy)
+#   below 0x1340     Kepler and older                            -> no current driver; stays on nouveau (pcos)
+#
+# For testing, PCOS_LSPCI_OUTPUT can hold `lspci -Dnnmm` style output instead of reading the hardware.
+
+set -euo pipefail
+
+lspci_output() {
+    if [[ -n "${PCOS_LSPCI_OUTPUT+x}" ]]; then
+        printf '%s\n' "${PCOS_LSPCI_OUTPUT}"
+    else
+        lspci -Dnnmm
+    fi
+}
+
+best_rank=0
+best_line=""
+# Display controllers only: VGA [0300], 3D (e.g. laptop dGPU) [0302], other display [0380]
+# Line format: 0000:01:00.0 "VGA compatible controller [0300]" "NVIDIA Corporation [10de]" "GP107 [GeForce GTX 1050 Ti] [1c82]" ...
+# The ID is always the last [xxxx] of each quoted field (names can contain brackets too).
+field_re='^[^ ]+ "([^"]*) \[([0-9a-f]{4})\]" "([^"]*) \[([0-9a-f]{4})\]" "([^"]*) \[([0-9a-f]{4})\]"'
+while IFS= read -r line; do
+    [[ "${line}" =~ ${field_re} ]] || continue
+    class="${BASH_REMATCH[2]}"
+    vendor="${BASH_REMATCH[4]}"
+    device="${BASH_REMATCH[6]}"
+    name="${BASH_REMATCH[3]} ${BASH_REMATCH[5]}"
+    [[ "${class}" =~ ^03(00|02|80)$ ]] || continue
+
+    if [[ "${vendor}" != "10de" ]]; then
+        rank=1; variant="pcos"; reason="open driver included"
+    else
+        id=$((16#${device}))
+        if (( id >= 0x1E00 )); then
+            rank=3; variant="pcos-nvidia"; reason="NVIDIA Turing or newer"
+        elif (( id >= 0x1340 )); then
+            rank=3; variant="pcos-nvidia-legacy"; reason="NVIDIA Maxwell/Pascal/Volta (580 LTS driver)"
+        else
+            rank=2; variant="pcos"; reason="NVIDIA Kepler or older: no supported proprietary driver, using nouveau"
+        fi
+    fi
+    # Prefer an NVIDIA GPU that needs a driver over integrated graphics
+    if (( rank > best_rank )); then
+        best_rank=${rank}
+        best_line="${variant}"$'\t'"${name}"$'\t'"${reason}"
+    fi
+done < <(lspci_output)
+
+if [[ -z "${best_line}" ]]; then
+    printf 'pcos\tno display controller found\tdefault\n'
+else
+    printf '%s\n' "${best_line}"
+fi

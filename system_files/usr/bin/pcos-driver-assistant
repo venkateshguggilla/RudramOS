@@ -1,0 +1,116 @@
+#!/bin/bash
+# PC OS Driver Assistant: checks the graphics hardware at login and offers to install
+# the matching driver (switches to the right image variant, with admin approval).
+#
+# Usage:
+#   pcos-driver-assistant           check and, if needed, offer the driver (runs at login)
+#   pcos-driver-assistant --check   print what was detected and what's installed, change nothing
+#   pcos-driver-assistant --reset   forget "Don't ask again" choices
+
+set -uo pipefail
+
+DETECT=/usr/libexec/pcos/pcos-gpu-detect
+SWITCH=/usr/libexec/pcos/pcos-gpu-switch
+STATE_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/pcos"
+DISMISSED="${STATE_DIR}/driver-assistant-dismissed"
+APP=(--app-name="PC OS" --icon=video-display)
+
+current_variant() {
+    case "$(cat /usr/share/pcos/gpu-variant 2>/dev/null)" in
+    nvidia) echo pcos-nvidia ;;
+    nvidia-legacy) echo pcos-nvidia-legacy ;;
+    *) echo pcos ;;
+    esac
+}
+
+# Image a pending (staged) update or switch will boot into, if any
+staged_image() {
+    rpm-ostree status --json 2>/dev/null |
+        jq -r '.deployments[] | select(.staged == true) | ."container-image-reference" // empty' 2>/dev/null |
+        head -n1
+}
+
+IFS=$'\t' read -r wanted gpu_name reason < <("${DETECT}")
+current=$(current_variant)
+
+case "${1:-}" in
+--check)
+    echo "Graphics:   ${gpu_name}"
+    echo "Needs:      ${wanted} (${reason})"
+    echo "Installed:  ${current}"
+    staged=$(staged_image)
+    [[ -n "${staged}" ]] && echo "Pending:    ${staged} (applies on restart)"
+    if [[ "${wanted}" == "${current}" ]]; then echo "Status:     OK"; else echo "Status:     driver change recommended"; fi
+    exit 0
+    ;;
+--reset)
+    rm -f "${DISMISSED}"
+    echo "Driver Assistant will ask again at next login."
+    exit 0
+    ;;
+"") ;;
+*)
+    echo "usage: $0 [--check|--reset]" >&2
+    exit 2
+    ;;
+esac
+
+[[ "${wanted}" == "${current}" ]] && exit 0
+# A switch to the right variant is already waiting for a restart
+[[ "$(staged_image)" == *"/${wanted}:"* ]] && exit 0
+# User chose "Don't ask again" for this exact GPU and variant
+grep -qxF "${wanted}"$'\t'"${gpu_name}" "${DISMISSED}" 2>/dev/null && exit 0
+
+if [[ "${wanted}" == "pcos" ]]; then
+    title="Graphics driver change recommended"
+    body="This PC has ${gpu_name}. The NVIDIA driver installed now isn't needed. Switch to the standard driver?"
+else
+    title="Graphics driver available"
+    body="${gpu_name} detected. Install the NVIDIA driver for full performance? It downloads in the background and finishes after a restart."
+fi
+
+choice=$(notify-send "${APP[@]}" --urgency=normal --wait \
+    --action=install="Install driver" --action=later="Not now" --action=never="Don't ask again" \
+    "${title}" "${body}")
+
+case "${choice}" in
+install) ;;
+never)
+    mkdir -p "${STATE_DIR}"
+    printf '%s\t%s\n' "${wanted}" "${gpu_name}" >>"${DISMISSED}"
+    exit 0
+    ;;
+*) exit 0 ;;
+esac
+
+notify-send "${APP[@]}" "Installing graphics driver" \
+    "Downloading ${wanted}. This can take several minutes; you can keep working."
+
+pkexec "${SWITCH}" "${wanted}"
+status=$?
+
+case "${status}" in
+0)
+    if [[ -e /run/pcos-mok-pending ]]; then
+        restart_body="After restarting, a blue \"MOK Manager\" screen appears once: choose Enroll MOK → Continue → Yes, type the password universalblue, then Reboot."
+    else
+        restart_body="Restart to start using the new driver."
+    fi
+    choice=$(notify-send "${APP[@]}" --urgency=critical --wait \
+        --action=restart="Restart now" --action=later="Later" \
+        "Graphics driver ready" "${restart_body}")
+    [[ "${choice}" == "restart" ]] && systemctl reboot
+    ;;
+126 | 127)
+    # Approval cancelled or not given
+    notify-send "${APP[@]}" "Graphics driver not installed" "Admin approval was cancelled. It will be offered again at next login."
+    ;;
+3)
+    notify-send "${APP[@]}" --urgency=critical "Graphics driver download failed" \
+        "Check the internet connection and try again from a terminal: pcos-driver-assistant"
+    ;;
+*)
+    notify-send "${APP[@]}" --urgency=critical "Graphics driver install failed" \
+        "Something went wrong (code ${status}). Run 'pcos-driver-assistant --check' in a terminal for details."
+    ;;
+esac

@@ -1,0 +1,53 @@
+#!/bin/bash
+# Privileged part of the PC OS Driver Assistant. Run through pkexec (polkit action
+# org.pcos.driver-assistant.switch), so it asks for admin approval.
+#
+# Usage: pcos-gpu-switch <pcos|pcos-nvidia|pcos-nvidia-legacy>
+#   1. Switches the system to that image variant (signature-checked, applied on next restart)
+#   2. For NVIDIA variants on Secure Boot PCs, queues enrollment of the driver signing key
+#
+# Exit codes: 0 ok, 2 bad argument, 3 download/switch failed, 4 key enrollment failed
+
+set -euo pipefail
+
+REGISTRY="ghcr.io/venkateshguggilla"
+SECUREBOOT_KEY="/etc/pki/akmods/certs/akmods-ublue.der"
+# Universal Blue's fixed one-time MOK password; typed once at the blue MOK Manager screen
+ENROLLMENT_PASSWORD="universalblue"
+
+variant="${1:-}"
+case "${variant}" in
+pcos | pcos-nvidia | pcos-nvidia-legacy) ;;
+*)
+    echo "usage: $0 <pcos|pcos-nvidia|pcos-nvidia-legacy>" >&2
+    exit 2
+    ;;
+esac
+
+if [[ "${EUID}" -ne 0 ]]; then
+    echo "must run as root (use pkexec)" >&2
+    exit 2
+fi
+
+echo "Switching to ${REGISTRY}/${variant}:latest"
+if ! bootc switch --enforce-container-sigpolicy "${REGISTRY}/${variant}:latest"; then
+    echo "bootc switch failed" >&2
+    exit 3
+fi
+
+if [[ "${variant}" == pcos-nvidia* ]] && mokutil --sb-state 2>/dev/null | grep -q "SecureBoot enabled"; then
+    if mokutil --test-key "${SECUREBOOT_KEY}" 2>/dev/null | grep -q "already enrolled"; then
+        echo "Driver signing key already enrolled"
+    else
+        echo "Queuing driver signing key enrollment"
+        mokutil --timeout -1 || true
+        if ! printf '%s\n%s\n' "${ENROLLMENT_PASSWORD}" "${ENROLLMENT_PASSWORD}" | mokutil --import "${SECUREBOOT_KEY}"; then
+            echo "mokutil --import failed" >&2
+            exit 4
+        fi
+        # Tells the assistant to explain the MOK screen before restarting
+        touch /run/pcos-mok-pending
+    fi
+fi
+
+echo "Done. Restart to finish."

@@ -55,9 +55,12 @@ Tracks B and C start on **Windows** (refactor + cross-platform UI) and don't dep
 - [~] Secure Boot signing: uses the Universal Blue akmods key (`ujust enroll-secure-boot-key`); own PC OS MOK key deferred
 - [x] Build matrix in CI: 3 images (`build.yml`) + ISO per variant (`build-disk.yml` `variant` input)
 - [x] Signature policy covers all 3 image repos, so switching variants is verified too
+- [x] **Driver Assistant**: one ISO for every PC; at login it detects the GPU and offers the matching variant (`pcos-driver-assistant`, `pcos-gpu-detect`, `pcos-gpu-switch`, polkit action), with tests in `tests/test-gpu-detect.sh`
+- [x] Repo made public (2026-10-18); container images still need to be made public on ghcr.io
 
 **Done when:**
 - [ ] AMD/Intel: `pcos` boots in the VM, and on the dev PC (live USB) the GPU works with the `amdgpu` driver
+- [ ] Standard ISO on an NVIDIA PC: Driver Assistant offers the right driver, and after restart + MOK enrollment the driver is active
 - [ ] **RTX 3060** PC: `nvidia-smi` works with Secure Boot ON, Wayland desktop, a Steam game runs
 - [ ] **GTX 1050 Ti** PC: same checks with the 580 LTS driver
 

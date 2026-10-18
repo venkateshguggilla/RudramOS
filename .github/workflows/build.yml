@@ -65,6 +65,11 @@ jobs:
         run: |
           just check
 
+      - name: Run tests
+        shell: bash
+        run: |
+          bash tests/test-gpu-detect.sh
+
       - name: Image Name
         id: image-name
         run: |
