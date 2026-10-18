@@ -1,5 +1,5 @@
 #!/bin/bash
-# Privileged part of the PC OS Driver Assistant. Run through pkexec (polkit action
+# Privileged part of the RudramOS Driver Assistant. Run through pkexec (polkit action
 # org.pcos.driver-assistant.switch), so it asks for admin approval.
 #
 # Usage: pcos-gpu-switch <pcos|pcos-nvidia|pcos-nvidia-legacy>

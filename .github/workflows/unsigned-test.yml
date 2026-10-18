@@ -1,6 +1,6 @@
 ---
 # Publishes ghcr.io/<owner>/pcos:unsigned-test WITHOUT a cosign signature.
-# Used to check that PC OS installs refuse unsigned images (Phase 1 check).
+# Used to check that RudramOS installs refuse unsigned images (Phase 1 check).
 # The label change gives it a new digest, so the signature of :latest can't match it.
 name: Publish unsigned test image
 on:

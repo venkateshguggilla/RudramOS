@@ -1,5 +1,5 @@
 ---
-name: Build PC OS installer ISO
+name: Build RudramOS installer ISO
 
 on:
   workflow_dispatch:
@@ -84,12 +84,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      # PC OS: the image is private, so log in before bootc-image-builder pulls it
+      # RudramOS: the image is private, so log in before bootc-image-builder pulls it
       - name: Log in to GHCR
         run: |
           echo "${{ secrets.GITHUB_TOKEN }}" | sudo podman login ghcr.io -u "${{ github.actor }}" --password-stdin
 
-      # PC OS: the installed system must track the same variant it was installed from
+      # RudramOS: the installed system must track the same variant it was installed from
       - name: Point installer at the selected variant
         run: |
           sed -i "s|/pcos:latest|/${IMAGE_NAME}:latest|" disk_config/iso.toml

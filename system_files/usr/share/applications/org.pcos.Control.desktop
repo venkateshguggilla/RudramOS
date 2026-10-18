@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=RudramOS Control Center
+GenericName=Security and System Settings
+Comment=Admin protection, disk encryption, graphics driver and updates
+Exec=pcos-control
+Icon=preferences-system
+Terminal=false
+Categories=Settings;System;Security;
+Keywords=security;encryption;tpm;yubikey;fido2;driver;nvidia;update;rollback;
+StartupNotify=true

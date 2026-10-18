@@ -1,4 +1,4 @@
 #%PAM-1.0
-# PC OS admin approval: STANDARD mode (Mac-like: your password).
+# RudramOS admin approval: STANDARD mode (Mac-like: your password).
 # Managed by pcos-admin-mode. sudo and polkit (desktop password prompts) include this file.
 auth       include      system-auth

@@ -1,5 +1,5 @@
 #!/bin/bash
-# PC OS Driver Assistant: checks the graphics hardware at login and offers to install
+# RudramOS Driver Assistant: checks the graphics hardware at login and offers to install
 # the matching driver (switches to the right image variant, with admin approval).
 #
 # Usage:
@@ -13,7 +13,7 @@ DETECT=/usr/libexec/pcos/pcos-gpu-detect
 SWITCH=/usr/libexec/pcos/pcos-gpu-switch
 STATE_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/pcos"
 DISMISSED="${STATE_DIR}/driver-assistant-dismissed"
-APP=(--app-name="PC OS" --icon=video-display)
+APP=(--app-name="RudramOS" --icon=video-display)
 
 current_variant() {
     case "$(cat /usr/share/pcos/gpu-variant 2>/dev/null)" in

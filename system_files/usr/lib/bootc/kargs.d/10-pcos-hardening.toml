@@ -1,4 +1,4 @@
-# PC OS kernel hardening (docs/DESIGN.md §4.6). Conservative set: chosen to not break
+# RudramOS kernel hardening (docs/DESIGN.md §4.6). Conservative set: chosen to not break
 # apps, games or drivers. Applied on install and on the next update after it's added.
 #   slab_nomerge              keep kernel object caches separate (heap exploit mitigation)
 #   init_on_alloc / init_on_free   zero memory on allocation and free (stops data leaks; ~1-3% cost)

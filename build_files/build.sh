@@ -1,5 +1,5 @@
 #!/bin/bash
-# PC OS image build script. Runs inside the Containerfile build (see Containerfile).
+# RudramOS image build script. Runs inside the Containerfile build (see Containerfile).
 
 set -ouex pipefail
 
@@ -12,17 +12,17 @@ SIGNING_PUBKEY="/etc/pki/containers/pcos.pub"
 ### System files
 # Copy the contents of system_files/ in the git repo to /
 cp -avf "/ctx/system_files"/. /
-chmod 0755 /usr/bin/pcos-admin-mode /usr/bin/pcos-disk-security /usr/bin/pcos-driver-assistant /usr/libexec/pcos/pcos-gpu-detect /usr/libexec/pcos/pcos-gpu-switch
+chmod 0755 /usr/bin/pcos-control /usr/libexec/pcos/pcos-terminal-run /usr/bin/pcos-admin-mode /usr/bin/pcos-disk-security /usr/bin/pcos-driver-assistant /usr/libexec/pcos/pcos-gpu-detect /usr/libexec/pcos/pcos-gpu-switch
 
 ### Branding (Phase 1 basics; full branding in Phase 12)
-sed -i 's/^PRETTY_NAME=.*/PRETTY_NAME="PC OS"/' /usr/lib/os-release
+sed -i 's/^PRETTY_NAME=.*/PRETTY_NAME="RudramOS"/' /usr/lib/os-release
 mkdir -p /usr/share/pcos
 date -u +%Y%m%d > /usr/share/pcos/build-date
 
 ### GPU drivers for this image variant
 /ctx/gpu.sh
 
-### Only accept PC OS images signed with our cosign key
+### Only accept RudramOS images signed with our cosign key
 # The public key must be committed as keys/cosign.pub. Fail the build without it,
 # otherwise the policy below would point at a missing key and block all updates.
 if [[ ! -s /ctx/keys/cosign.pub ]]; then
@@ -49,6 +49,8 @@ done
 ### Packages
 # pam-u2f/pamu2fcfg: FIDO2 security keys for Strong admin mode; pamtester: test before enabling it
 dnf5 install -y pam-u2f pamu2fcfg pamtester
+# Control Center (GTK4 + libadwaita, Python)
+dnf5 install -y python3-gobject gtk4 libadwaita
 
 ### Admin approval modes (docs/DESIGN.md §4.3)
 # sudo and polkit (all desktop admin prompts) authenticate through /etc/pam.d/pcos-admin,
@@ -69,6 +71,9 @@ done
 install -m 0644 -o root -g root /dev/null /etc/u2f_mappings
 mkdir -p /etc/pcos
 echo standard > /etc/pcos/admin-mode
+
+### Check the Control Center loads (imports GTK/Adw, no display needed)
+python3 -B -c 'import sys; sys.path.insert(0, "/usr/lib/pcos-control"); import pcos_control.app'
 
 ### Updates
 # Bluefin already enables automatic updates (uupd.timer: bootc image + Flatpaks,

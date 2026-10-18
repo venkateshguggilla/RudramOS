@@ -1,13 +1,13 @@
-# PC OS: Design Document
+# RudramOS: Design Document
 
 Status: draft v0.1 (2026-10-18)
-Working name: **PC OS** (final name and branding are still to be decided; see [Open decisions](#16-open-decisions))
+Working name: **RudramOS** (final name and branding are still to be decided; see [Open decisions](#16-open-decisions))
 
 ---
 
 ## 1. Overview
 
-PC OS is a personal desktop operating system for x86-64 PCs. It aims to be **secured like a Mac and as easy to use as a Mac**. Users can install apps and change settings freely. Every system-level change needs explicit approval, the disk can only be read on the PC it's installed on, nothing tracks the user, and devices on the network or plugged into USB get no access without permission.
+RudramOS is a personal desktop operating system for x86-64 PCs. It aims to be **secured like a Mac and as easy to use as a Mac**. Users can install apps and change settings freely. Every system-level change needs explicit approval, the disk can only be read on the PC it's installed on, nothing tracks the user, and devices on the network or plugged into USB get no access without permission.
 
 ### 1.1 Goals
 | # | Goal |
@@ -64,7 +64,7 @@ PC OS is a personal desktop operating system for x86-64 PCs. It aims to be **sec
                     └───────────────┬──────────────────────────────┘
                                     │ signed OCI images
                                     ▼
-┌─────────────────────────── PC running PC OS ───────────────────────────┐
+┌─────────────────────────── PC running RudramOS ───────────────────────────┐
 │ UEFI Secure Boot → shim → GRUB/UKI → signed kernel → initrd            │
 │   └─ TPM2 unseals LUKS2 key (opt. PIN / FIDO2)                          │
 │                                                                         │
@@ -74,7 +74,7 @@ PC OS is a personal desktop operating system for x86-64 PCs. It aims to be **sec
 │ /home (user data)            — all on the encrypted LUKS2 volume        │
 │                                                                         │
 │ Policy services: firewalld · USBGuard · fapolicyd · SELinux · polkit    │
-│ PC OS services:  pcosd (root helper) · pcos-usb-prompt · monitor svc    │
+│ RudramOS services:  pcosd (root helper) · pcos-usb-prompt · monitor svc    │
 │                  · fan daemon                                           │
 │ Apps: Control Center · Temp Monitor · PC Cleaner · GSConnect · scrcpy   │
 └─────────────────────────────────────────────────────────────────────────┘
@@ -103,11 +103,11 @@ NVIDIA kernel modules are **pre-built and signed** by Universal Blue's akmods pi
 
 If the installed variant (`/usr/share/pcos/gpu-variant`) doesn't match, a notification offers **Install driver / Not now / Don't ask again**. Installing runs `pkexec pcos-gpu-switch <variant>` (polkit action `org.pcos.driver-assistant.switch`, admin approval) → a signature-checked `bootc switch`, plus queued MOK enrollment on Secure Boot PCs → "Restart now". This also works in reverse: a disk moved to a PC without NVIDIA is offered the standard variant. `pcos-driver-assistant --check` shows the result without changing anything.
 
-They're signed with the **Universal Blue akmods key**, which Bluefin already ships. Users enroll it once for Secure Boot (`ujust enroll-secure-boot-key`, MOK password `universalblue`). Signing with our own PC OS MOK key is deferred to the UKI / own-keys work ("Later / optional" in the roadmap).
+They're signed with the **Universal Blue akmods key**, which Bluefin already ships. Users enroll it once for Secure Boot (`ujust enroll-secure-boot-key`, MOK password `universalblue`). Signing with our own RudramOS MOK key is deferred to the UKI / own-keys work ("Later / optional" in the roadmap).
 
 ### 3.2 Updates and rollback
 - `bootc upgrade` runs automatically on a timer: it downloads in the background and applies on the next reboot.
-- Update policy: images are only accepted if they carry a valid **cosign signature** from the PC OS key (`/etc/containers/policy.json` set to `sigstore` for our registry).
+- Update policy: images are only accepted if they carry a valid **cosign signature** from the RudramOS key (`/etc/containers/policy.json` set to `sigstore` for our registry).
 - Rollback: `bootc rollback`, or pick the previous entry in the boot menu.
 - The PC Cleaner "old OS versions" item always keeps **one rollback deployment**.
 
@@ -115,7 +115,7 @@ They're signed with the **Universal Blue akmods key**, which Bluefin already shi
 | Type | Source | Who can install |
 |---|---|---|
 | Core OS, drivers, built-in apps | The image (RPMs baked in at build time) | Only the image maintainer, through a new signed image |
-| Desktop apps | **Flatpak** (Flathub + an optional PC OS repo) | The user, after **admin approval** |
+| Desktop apps | **Flatpak** (Flathub + an optional RudramOS repo) | The user, after **admin approval** |
 | Extra system packages | `rpm-ostree install` (layering) | The user, after **admin approval** (discouraged; prefer Flatpak) |
 | Downloaded binaries/AppImages | — | Blocked until approved (see §4.4) |
 
@@ -124,7 +124,7 @@ They're signed with the **Universal Blue akmods key**, which Bluefin already shi
 ## 4. Security design
 
 ### 4.1 Boot chain
-- **UEFI Secure Boot is on.** Fedora's Microsoft-signed `shim` loads GRUB and the Fedora-signed kernel. Our NVIDIA modules are signed with the PC OS key, enrolled in MOK.
+- **UEFI Secure Boot is on.** Fedora's Microsoft-signed `shim` loads GRUB and the Fedora-signed kernel. Our NVIDIA modules are signed with the RudramOS key, enrolled in MOK.
 - **Phase 2 hardening:** a signed **Unified Kernel Image (UKI)** (kernel + initrd + kernel command line in one signed file), so the initrd and boot parameters can't be tampered with.
 - **The kernel only loads signed modules** (`module.sig_enforce=1`), and lockdown runs in `integrity` mode.
 - **Setup recommendation:** set a UEFI/BIOS password and disable booting from USB (documented in first-boot setup).
@@ -339,7 +339,7 @@ No OS can stop tracking through accounts you're signed into, browser fingerprint
 
 ---
 
-## 8. PC OS Control Center and helper service
+## 8. RudramOS Control Center and helper service
 
 The custom features above need one place in the UI and one privileged backend.
 
@@ -485,7 +485,7 @@ The custom features above need one place in the UI and one privileged backend.
 8. **Connect your phone** (optional, can be skipped)
 9. Recommendations: set a BIOS password, disable USB boot (with links to guidance)
 
-Implementation: GNOME Initial Setup with added PC OS pages, or a dedicated `pcos-firstboot` app that runs after GNOME Initial Setup. To be decided in phase 12.
+Implementation: GNOME Initial Setup with added RudramOS pages, or a dedicated `pcos-firstboot` app that runs after GNOME Initial Setup. To be decided in phase 12.
 
 ---
 
@@ -556,7 +556,7 @@ The two existing apps can stay in their own repositories and be pulled in at ima
 | MOK / module signing key | Signs NVIDIA kmods (and the UKI later) | CI secret + offline backup |
 | (Later) own Secure Boot db key | Full custom Secure Boot | Offline |
 
-**Losing or leaking these keys compromises every PC OS install.** They're protected with 2FA (preferably a FIDO2 key) on GitHub, and kept in an offline backup.
+**Losing or leaking these keys compromises every RudramOS install.** They're protected with 2FA (preferably a FIDO2 key) on GitHub, and kept in an offline backup.
 
 ---
 

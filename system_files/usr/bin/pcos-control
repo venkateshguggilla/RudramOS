@@ -1,0 +1,10 @@
+#!/usr/bin/python3
+"""Starts RudramOS Control Center."""
+
+import sys
+
+sys.path.insert(0, "/usr/lib/pcos-control")
+
+from pcos_control.app import main  # noqa: E402
+
+sys.exit(main())

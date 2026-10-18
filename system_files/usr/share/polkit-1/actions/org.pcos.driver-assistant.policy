@@ -3,7 +3,7 @@
  "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
  "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
 <policyconfig>
-  <vendor>PC OS</vendor>
+  <vendor>RudramOS</vendor>
 
   <!-- Driver Assistant: switch to the image variant with the right graphics driver.
        Always needs admin approval (password, or password + security key in Strong mode). -->

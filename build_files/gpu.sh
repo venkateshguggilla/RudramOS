@@ -1,5 +1,5 @@
 #!/bin/bash
-# GPU driver layer for the PC OS image variants. Called from build.sh with GPU set.
+# GPU driver layer for the RudramOS image variants. Called from build.sh with GPU set.
 #   none           AMD/Intel: open drivers already in the base image
 #   nvidia         NVIDIA latest (open kernel modules): already in the bluefin-nvidia-open base
 #   nvidia-legacy  NVIDIA 580 LTS (closed kernel modules) for GTX 10 series and older:

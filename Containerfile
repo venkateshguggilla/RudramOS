@@ -1,4 +1,4 @@
-# PC OS image
+# RudramOS image
 # Based on the Universal Blue image-template (Apache-2.0): https://github.com/ublue-os/image-template
 
 # Base image and GPU variant (set by CI, see .github/workflows/build.yml):

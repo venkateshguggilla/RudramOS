@@ -1,4 +1,4 @@
-# PC OS
+# RudramOS
 
 A personal desktop operating system for PCs: **secured like a Mac and as easy to use as a Mac**. It's built as an immutable, signed Fedora **bootc** image with a GNOME desktop.
 
@@ -75,6 +75,9 @@ Switch variants by hand (signature-checked), if ever needed:
 sudo bootc switch --enforce-container-sigpolicy ghcr.io/venkateshguggilla/pcos-nvidia:latest
 ```
 
+## RudramOS Control Center
+Open **RudramOS Control Center** from the app grid (or run `pcos-control`). It shows and changes admin protection, disk encryption, the graphics driver and updates in one place. Steps that need your password or a security-key touch open in a terminal window.
+
 ## Admin approval: Standard or Strong
 Every admin action (installing apps, system settings, `sudo`) asks for approval.
 - **Standard** (default): your password, like a Mac.
@@ -92,7 +95,7 @@ sudo pcos-admin-mode strong
 ```
 `strong` first runs a password + touch test and refuses if it fails, so you can't lock yourself out by mistake. Back to Standard: `sudo pcos-admin-mode standard` (needs the key while in Strong mode). Check with `pcos-admin-mode status`.
 
-**Lost all keys while in Strong mode** (not yet tested end to end): boot the PC OS installer USB, press **Ctrl+Alt+F2** for a root shell, unlock the drive with the recovery key (`cryptsetup open /dev/<partition> sysroot`), mount it, and copy `/usr/share/pcos/pam/pcos-admin.standard` over `ostree/deploy/default/deploy/<current>/etc/pam.d/pcos-admin`.
+**Lost all keys while in Strong mode** (not yet tested end to end): boot the RudramOS installer USB, press **Ctrl+Alt+F2** for a root shell, unlock the drive with the recovery key (`cryptsetup open /dev/<partition> sysroot`), mount it, and copy `/usr/share/pcos/pam/pcos-admin.standard` over `ostree/deploy/default/deploy/<current>/etc/pam.d/pcos-admin`.
 
 ## Disk encryption
 Tick **Encrypt my data** in the installer's **Installation Destination** and choose a passphrase. After the first login, set up how the drive unlocks:
@@ -107,4 +110,4 @@ sudo pcos-disk-security tpm
 - `status` shows what's set up. After a BIOS/firmware update asks for the recovery key, run `reseal`.
 
 ## Building the installer ISO
-GitHub → Actions → **Build PC OS installer ISO** → Run workflow (platform `amd64`, choose the **variant**). Download the `<variant>-anaconda-iso` artifact.
+GitHub → Actions → **Build RudramOS installer ISO** → Run workflow (platform `amd64`, choose the **variant**). Download the `<variant>-anaconda-iso` artifact.

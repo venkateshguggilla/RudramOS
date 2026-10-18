@@ -1,5 +1,5 @@
 #!/bin/bash
-# Detects the graphics hardware and prints which PC OS image variant it needs.
+# Detects the graphics hardware and prints which RudramOS image variant it needs.
 #
 # Output (one line, tab-separated):  <variant>\t<gpu name>\t<reason>
 #   variant: pcos | pcos-nvidia | pcos-nvidia-legacy

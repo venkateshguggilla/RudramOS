@@ -1,0 +1,22 @@
+#!/bin/bash
+# Opens a terminal window that runs one RudramOS command and waits for Enter before closing.
+# Used by Control Center for steps that need typing or touching a security key.
+# Usage: pcos-terminal-run <title> <command> [args...]
+
+set -uo pipefail
+
+title="$1"
+shift
+printf -v cmd '%q ' "$@"
+script="printf '\\e]0;%s\\a' $(printf '%q' "${title}"); echo $(printf '%q' "== ${title} =="); echo; ${cmd}; status=\$?; echo; if [ \$status -eq 0 ]; then echo 'Done.'; else echo \"Finished with an error (code \$status).\"; fi; read -r -p 'Press Enter to close this window...' _"
+
+if command -v ptyxis >/dev/null; then
+    exec ptyxis --new-window -- bash -c "${script}"
+elif command -v kgx >/dev/null; then
+    exec kgx -- bash -c "${script}"
+elif command -v gnome-terminal >/dev/null; then
+    exec gnome-terminal -- bash -c "${script}"
+else
+    echo "No terminal app found (ptyxis, kgx or gnome-terminal)" >&2
+    exit 1
+fi

@@ -1,5 +1,5 @@
 #!/bin/bash
-# PC OS admin approval mode (docs/DESIGN.md §4.3). Run from a terminal with sudo.
+# RudramOS admin approval mode (docs/DESIGN.md §4.3). Run from a terminal with sudo.
 #
 #   status               show the current mode and registered security keys
 #   add-key [user]       register a FIDO2 security key (run once per key; register a backup key too)

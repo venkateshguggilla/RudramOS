@@ -1,5 +1,5 @@
 #!/bin/bash
-# PC OS disk security: manage how the encrypted system drive (LUKS2) unlocks at boot.
+# RudramOS disk security: manage how the encrypted system drive (LUKS2) unlocks at boot.
 # See docs/DESIGN.md §4.2. Run from a terminal: sudo pcos-disk-security <command>
 #
 #   status             show encryption, TPM, Secure Boot and enrolled unlock methods

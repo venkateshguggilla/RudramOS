@@ -1,5 +1,5 @@
 #%PAM-1.0
-# PC OS admin approval: STRONG mode (your password + touching a registered FIDO2 security key).
+# RudramOS admin approval: STRONG mode (your password + touching a registered FIDO2 security key).
 # Managed by pcos-admin-mode. sudo and polkit (desktop password prompts) include this file.
 # "substack" keeps system-auth's "sufficient" password success from ending the stack early,
 # so the key check below always runs.

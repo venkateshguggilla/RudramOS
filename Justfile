@@ -99,7 +99,7 @@ build $target_image=image_name $tag=default_tag:
     set -euox pipefail
 
     BUILD_ARGS=()
-    # PC OS image variant (set by CI): base image and GPU driver layer
+    # RudramOS image variant (set by CI): base image and GPU driver layer
     if [[ -n "${BASE_IMAGE:-}" ]]; then
         BUILD_ARGS+=("--build-arg" "BASE_IMAGE=${BASE_IMAGE}")
     fi

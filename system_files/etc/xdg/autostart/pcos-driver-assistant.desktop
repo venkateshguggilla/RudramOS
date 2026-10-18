@@ -1,6 +1,6 @@
 [Desktop Entry]
 Type=Application
-Name=PC OS Driver Assistant
+Name=RudramOS Driver Assistant
 Comment=Checks the graphics hardware and offers the matching driver
 Exec=/usr/bin/pcos-driver-assistant
 Icon=video-display

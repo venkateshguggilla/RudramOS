@@ -1,4 +1,4 @@
-# PC OS: Phased Build Roadmap
+# RudramOS: Phased Build Roadmap
 
 Companion to [DESIGN.md](DESIGN.md). Each phase lists what gets built, a **Done when** checklist and a rough size:
 - **S**: a few days
@@ -34,7 +34,7 @@ Tracks B and C start on **Windows** (refactor + cross-platform UI) and don't dep
 
 ## Phase 1: Minimal signed image (M): ✅ complete 2026-10-18
 - [x] Start from the Universal Blue `image-template`. Create `Containerfile` `FROM ghcr.io/ublue-os/bluefin:stable` (or `base-main`)
-- [~] Add PC OS branding basics: `/etc/os-release` name (done), wallpaper, logo (Phase 12)
+- [~] Add RudramOS branding basics: `/etc/os-release` name (done), wallpaper, logo (Phase 12)
 - [x] GitHub Actions workflow: build → **cosign sign** → push `ghcr.io/<you>/pcos:latest` + dated tags
 - [x] Workflow to build an **installer ISO** with `bootc-image-builder`
 - [x] Container signature policy in the image (`/etc/containers/policy.json` + `registries.d`) so the PC **only accepts our signed images**
@@ -52,7 +52,7 @@ Tracks B and C start on **Windows** (refactor + cross-platform UI) and don't dep
 - [x] `ARG BASE_IMAGE` + `ARG GPU=none|nvidia|nvidia-legacy` in the Containerfile; driver layer in `build_files/gpu.sh`
 - [x] `pcos-nvidia`: based on `bluefin-nvidia-open` (NVIDIA latest driver, open kernel modules)
 - [x] `pcos-nvidia-legacy`: NVIDIA **580 LTS** closed modules from Universal Blue's `akmods-nvidia-lts`, matched to the base kernel
-- [~] Secure Boot signing: uses the Universal Blue akmods key (`ujust enroll-secure-boot-key`); own PC OS MOK key deferred
+- [~] Secure Boot signing: uses the Universal Blue akmods key (`ujust enroll-secure-boot-key`); own RudramOS MOK key deferred
 - [x] Build matrix in CI: 3 images (`build.yml`) + ISO per variant (`build-disk.yml` `variant` input)
 - [x] Signature policy covers all 3 image repos, so switching variants is verified too
 - [x] **Driver Assistant**: one ISO for every PC; at login it detects the GPU and offers the matching variant (`pcos-driver-assistant`, `pcos-gpu-detect`, `pcos-gpu-switch`, polkit action), with tests in `tests/test-gpu-detect.sh`
@@ -94,9 +94,10 @@ Tracks B and C start on **Windows** (refactor + cross-platform UI) and don't dep
 - [ ] Verify on real hardware with FIDO2 keys (Hyper-V can't pass USB devices to Linux VMs)
 - [ ] Recovery procedure when all keys are lost (installer shell + recovery key), tested
 
-**Part 2: privileged helper + Control Center**
-- [ ] **`pcosd`** privileged helper (D-Bus system bus, polkit actions `org.pcos.*`)
-- [ ] **`pcos-control`** app (GTK4/libadwaita, Python): Security page → Admin protection, Disk encryption, Graphics driver
+**Part 2: Control Center**
+- [x] **`pcos-control`** app (GTK4/libadwaita, Python, "RudramOS Control Center" in the app grid) with pages **Security** (admin mode, keys), **Disk** (encryption, TPM, Secure Boot, unlock setup), **Graphics** (detected GPU, install driver via pkexec) and **System** (version, pending update, check for updates, roll back)
+- [x] Status is read without root (`pcos_control/status.py`, 10 unit tests in CI); steps that need typing or a key touch open in a terminal via `pcos-terminal-run`
+- [ ] Replace the terminal steps with native dialogs through a **`pcosd`** privileged helper (D-Bus system bus, polkit actions `org.pcos.*`)
 - [ ] Optional separate admin password (Standard mode)
 - [ ] auditd rules for approvals; Activity log page (basic)
 
@@ -219,7 +220,7 @@ Repo: `C:\Venky\work\pc_cleaner` (or `apps/pc-cleaner`)
 - [ ] Linux test suite (temp folders, throwaway SQLite); registry tests Windows-only
 - [ ] RPM in the image
 
-**Done when:** `python -m pccleaner scan` / `clean` work on PC OS; Firefox history cleaned with bookmarks kept; a scheduled clean runs from the systemd timer, and a missed run happens after the next boot.
+**Done when:** `python -m pccleaner scan` / `clean` work on RudramOS; Firefox history cleaned with bookmarks kept; a scheduled clean runs from the systemd timer, and a missed run happens after the next boot.
 
 ---
 
@@ -240,7 +241,7 @@ Repo: `C:\Venky\work\pc_cleaner` (or `apps/pc-cleaner`)
 - [ ] Control Center **Updates** page (version, update now, rollback)
 - [ ] User guide (`docs/USER_GUIDE.md`): keys, recovery, USB prompts, extensions, phone
 
-**Done when:** a non-technical person can install PC OS from USB and finish setup without help.
+**Done when:** a non-technical person can install RudramOS from USB and finish setup without help.
 
 ---
 

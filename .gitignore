@@ -11,3 +11,7 @@ _build-*/**
 *_chunkah_*
 *_rpm-ostree_*
 output
+
+# Python bytecode
+__pycache__/
+*.pyc
