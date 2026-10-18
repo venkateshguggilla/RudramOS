@@ -56,7 +56,7 @@ Tracks B and C start on **Windows** (refactor + cross-platform UI) and don't dep
 - [x] Build matrix in CI: 3 images (`build.yml`) + ISO per variant (`build-disk.yml` `variant` input)
 - [x] Signature policy covers all 3 image repos, so switching variants is verified too
 - [x] **Driver Assistant**: one ISO for every PC; at login it detects the GPU and offers the matching variant (`pcos-driver-assistant`, `pcos-gpu-detect`, `pcos-gpu-switch`, polkit action), with tests in `tests/test-gpu-detect.sh`
-- [x] Repo made public (2026-10-18); container images still need to be made public on ghcr.io
+- [x] Repo and all 3 container images public (2026-10-18): PCs pull updates and drivers without a token; signatures verify anonymously
 
 **Done when:**
 - [ ] AMD/Intel: `pcos` boots in the VM, and on the dev PC (live USB) the GPU works with the `amdgpu` driver
