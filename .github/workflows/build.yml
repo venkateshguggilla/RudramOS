@@ -22,8 +22,27 @@ concurrency:
 
 jobs:
   build_push:
-    name: Build and push image
+    name: Build and push ${{ matrix.image }}
     runs-on: ubuntu-26.04
+
+    # PC OS image variants (docs/DESIGN.md §3.1)
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: pcos
+            base_image: ghcr.io/ublue-os/bluefin
+            gpu: none
+          - image: pcos-nvidia
+            base_image: ghcr.io/ublue-os/bluefin-nvidia-open
+            gpu: nvidia
+          - image: pcos-nvidia-legacy
+            base_image: ghcr.io/ublue-os/bluefin
+            gpu: nvidia-legacy
+
+    env:
+      BASE_IMAGE: ${{ matrix.base_image }}
+      GPU: ${{ matrix.gpu }}
 
     permissions:
       contents: read
@@ -49,7 +68,7 @@ jobs:
       - name: Image Name
         id: image-name
         run: |
-          IMAGE_NAME=$(just image_name)
+          IMAGE_NAME="${{ matrix.image }}"
 
           echo "IMAGE_NAME=${IMAGE_NAME}" >> $GITHUB_ENV
 

@@ -49,16 +49,17 @@ Tracks B and C start on **Windows** (refactor + cross-platform UI) and don't dep
 ---
 
 ## Phase 2: GPU image variants (M)
-- [ ] Add `ARG GPU=none|nvidia|nvidia-legacy` to the Containerfile (or use separate Universal Blue `-nvidia` bases)
-- [ ] `pcos-nvidia`: NVIDIA latest driver, open kernel modules
-- [ ] `pcos-nvidia-legacy`: NVIDIA **580xx** (RPM Fusion `akmod-nvidia-580xx` built at image time, or negativo17)
-- [ ] Generate the **MOK signing key**, sign the kmods in CI, ship the public cert, and add a first-boot `mokutil --import` helper
-- [ ] Build matrix in CI: 3 images + 3 ISOs
+- [x] `ARG BASE_IMAGE` + `ARG GPU=none|nvidia|nvidia-legacy` in the Containerfile; driver layer in `build_files/gpu.sh`
+- [x] `pcos-nvidia`: based on `bluefin-nvidia-open` (NVIDIA latest driver, open kernel modules)
+- [x] `pcos-nvidia-legacy`: NVIDIA **580 LTS** closed modules from Universal Blue's `akmods-nvidia-lts`, matched to the base kernel
+- [~] Secure Boot signing: uses the Universal Blue akmods key (`ujust enroll-secure-boot-key`); own PC OS MOK key deferred
+- [x] Build matrix in CI: 3 images (`build.yml`) + ISO per variant (`build-disk.yml` `variant` input)
+- [x] Signature policy covers all 3 image repos, so switching variants is verified too
 
 **Done when:**
 - [ ] AMD/Intel: `pcos` boots in the VM, and on the dev PC (live USB) the GPU works with the `amdgpu` driver
 - [ ] **RTX 3060** PC: `nvidia-smi` works with Secure Boot ON, Wayland desktop, a Steam game runs
-- [ ] **GTX 1050 Ti** PC: same checks with the 580xx driver
+- [ ] **GTX 1050 Ti** PC: same checks with the 580 LTS driver
 
 ---
 

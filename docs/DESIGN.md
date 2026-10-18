@@ -89,7 +89,11 @@ All variants are built from one recipe; only the GPU driver layer differs.
 | `pcos-nvidia` | NVIDIA Turing and newer: RTX 20/30/40/50, GTX 16 (e.g. **RTX 3060**) | NVIDIA latest, open kernel modules |
 | `pcos-nvidia-legacy` | NVIDIA Pascal/Maxwell: GTX 10 series (e.g. **GTX 1050 Ti**) | NVIDIA **580xx** legacy branch (RPM Fusion / negativo17); expected end of life around 2028 |
 
-NVIDIA kernel modules are **pre-built and signed** in CI with the PC OS signing key. Users enroll that key once (MOK) at first install, so Secure Boot keeps working.
+NVIDIA kernel modules are **pre-built and signed** by Universal Blue's akmods pipeline:
+- `pcos-nvidia` inherits them from `bluefin-nvidia-open`.
+- `pcos-nvidia-legacy` installs `ghcr.io/ublue-os/akmods-nvidia-lts:coreos-stable-<fedora>-<kernel>` (580 branch, closed modules), always matched to the base image's exact kernel (`build_files/gpu.sh`).
+
+They're signed with the **Universal Blue akmods key**, which Bluefin already ships. Users enroll it once for Secure Boot (`ujust enroll-secure-boot-key`, MOK password `universalblue`). Signing with our own PC OS MOK key is deferred to the UKI / own-keys work ("Later / optional" in the roadmap).
 
 ### 3.2 Updates and rollback
 - `bootc upgrade` runs automatically on a timer: it downloads in the background and applies on the next reboot.

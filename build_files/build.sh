@@ -3,7 +3,10 @@
 
 set -ouex pipefail
 
-IMAGE_REPO="ghcr.io/venkateshguggilla/pcos"
+GPU="${GPU:-none}"
+REGISTRY="ghcr.io/venkateshguggilla"
+# All image variants: a PC may switch between them, so each must be signature-checked
+IMAGE_REPOS=("${REGISTRY}/pcos" "${REGISTRY}/pcos-nvidia" "${REGISTRY}/pcos-nvidia-legacy")
 SIGNING_PUBKEY="/etc/pki/containers/pcos.pub"
 
 ### System files
@@ -14,6 +17,9 @@ cp -avf "/ctx/system_files"/. /
 sed -i 's/^PRETTY_NAME=.*/PRETTY_NAME="PC OS"/' /usr/lib/os-release
 mkdir -p /usr/share/pcos
 date -u +%Y%m%d > /usr/share/pcos/build-date
+
+### GPU drivers for this image variant
+/ctx/gpu.sh
 
 ### Only accept PC OS images signed with our cosign key
 # The public key must be committed as keys/cosign.pub. Fail the build without it,
@@ -26,23 +32,21 @@ install -Dm644 /ctx/keys/cosign.pub "${SIGNING_PUBKEY}"
 
 command -v jq >/dev/null || dnf5 install -y jq
 POLICY=/etc/containers/policy.json
-jq --arg repo "${IMAGE_REPO}" --arg key "${SIGNING_PUBKEY}" \
-    '.transports.docker[$repo] = [{
-        "type": "sigstoreSigned",
-        "keyPath": $key,
-        "signedIdentity": {"type": "matchRepository"}
-    }]' "${POLICY}" > /tmp/policy.json
-install -m644 /tmp/policy.json "${POLICY}"
-
 mkdir -p /etc/containers/registries.d
-cat > /etc/containers/registries.d/pcos.yaml <<EOF
-docker:
-  ${IMAGE_REPO}:
-    use-sigstore-attachments: true
-EOF
+echo "docker:" > /etc/containers/registries.d/pcos.yaml
+for repo in "${IMAGE_REPOS[@]}"; do
+    jq --arg repo "${repo}" --arg key "${SIGNING_PUBKEY}" \
+        '.transports.docker[$repo] = [{
+            "type": "sigstoreSigned",
+            "keyPath": $key,
+            "signedIdentity": {"type": "matchRepository"}
+        }]' "${POLICY}" > /tmp/policy.json
+    install -m644 /tmp/policy.json "${POLICY}"
+    printf '  %s:\n    use-sigstore-attachments: true\n' "${repo}" >> /etc/containers/registries.d/pcos.yaml
+done
 
 ### Packages
-# Phase 1 adds no packages. Later phases install them here, e.g.:
+# No extra packages yet. Later phases install them here, e.g.:
 # dnf5 install -y usbguard fapolicyd pam-u2f
 
 ### Updates

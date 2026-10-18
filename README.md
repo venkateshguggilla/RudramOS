@@ -17,7 +17,7 @@ A personal desktop operating system for PCs: **secured like a Mac and as easy to
 - [Build roadmap](docs/ROADMAP.md): phases, checklists and "done when" criteria
 
 ## Status
-Phase 1 complete (2026-10-18): signed image builds in CI, installs from ISO, updates, rolls back, and refuses unsigned images. Next: Phase 2 (GPU image variants).
+Phase 1 complete (2026-10-18). Phase 2 in progress: three GPU image variants build in CI; hardware testing on the NVIDIA PCs pending.
 
 ## Repository layout
 Built from the [Universal Blue image-template](https://github.com/ublue-os/image-template) (Apache-2.0, see `LICENSE`).
@@ -56,5 +56,23 @@ The token can only read packages, so a leaked token can't change the repo or pub
 
 **GitHub Actions minutes:** private repos get a limited free monthly quota (public repos are free). Each image build takes roughly 20–40 minutes, and `build.yml` runs daily. Change its `schedule` to weekly if you get close to the limit.
 
+## Image variants
+| Image | For |
+|---|---|
+| `pcos` | AMD and Intel graphics |
+| `pcos-nvidia` | NVIDIA RTX 20/30/40/50 and GTX 16 series (e.g. RTX 3060) |
+| `pcos-nvidia-legacy` | NVIDIA GTX 10 series and older Pascal/Maxwell (e.g. GTX 1050 Ti), 580 LTS driver |
+
+**NVIDIA with Secure Boot:** after installing an NVIDIA variant, enroll the driver signing key once, then reboot:
+```bash
+ujust enroll-secure-boot-key
+```
+On reboot a blue **MOK Manager** screen appears: choose **Enroll MOK → Continue → Yes**, enter the password `universalblue`, then **Reboot**. Check the driver with `nvidia-smi`.
+
+Switch an existing install to another variant (signature-checked):
+```bash
+sudo bootc switch --enforce-container-sigpolicy ghcr.io/venkateshguggilla/pcos-nvidia:latest
+```
+
 ## Building the installer ISO
-GitHub → Actions → **Build PC OS installer ISO** → Run workflow (platform `amd64`). Download the `anaconda-iso` artifact.
+GitHub → Actions → **Build PC OS installer ISO** → Run workflow (platform `amd64`, choose the **variant**). Download the `<variant>-anaconda-iso` artifact.
