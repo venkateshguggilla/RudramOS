@@ -32,7 +32,7 @@ Tracks B and C start on **Windows** (refactor + cross-platform UI) and don't dep
 
 ---
 
-## Phase 1: Minimal signed image (M)
+## Phase 1: Minimal signed image (M): ✅ complete 2026-10-18
 - [x] Start from the Universal Blue `image-template`. Create `Containerfile` `FROM ghcr.io/ublue-os/bluefin:stable` (or `base-main`)
 - [~] Add PC OS branding basics: `/etc/os-release` name (done), wallpaper, logo (Phase 12)
 - [x] GitHub Actions workflow: build → **cosign sign** → push `ghcr.io/<you>/pcos:latest` + dated tags
@@ -43,7 +43,7 @@ Tracks B and C start on **Windows** (refactor + cross-platform UI) and don't dep
 **Done when:**
 - [x] the ISO installs in the Hyper-V VM and boots to GNOME
 - [x] pushing a change to Git produces a new image, and the VM updates to it after a reboot
-- [ ] `bootc rollback` returns to the previous version
+- [x] `bootc rollback` returns to the previous version (07:55 ↔ 08:47 builds, 2026-10-18)
 - [x] an unsigned image is **refused** on update (tested with `:unsigned-test`, 2026-10-18)
 
 ---

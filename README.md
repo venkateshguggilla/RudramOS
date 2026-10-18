@@ -17,7 +17,7 @@ A personal desktop operating system for PCs: **secured like a Mac and as easy to
 - [Build roadmap](docs/ROADMAP.md): phases, checklists and "done when" criteria
 
 ## Status
-Phase 1 in progress: repo, signing keys and CI set up. Next: first image build, then install in a VM.
+Phase 1 complete (2026-10-18): signed image builds in CI, installs from ISO, updates, rolls back, and refuses unsigned images. Next: Phase 2 (GPU image variants).
 
 ## Repository layout
 Built from the [Universal Blue image-template](https://github.com/ublue-os/image-template) (Apache-2.0, see `LICENSE`).
