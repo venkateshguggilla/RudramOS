@@ -17,7 +17,7 @@ A personal desktop operating system for PCs: **secured like a Mac and as easy to
 - [Build roadmap](docs/ROADMAP.md): phases, checklists and "done when" criteria
 
 ## Status
-Planning complete. Next: Phase 0 (repo, VM template, FIDO2 keys, signing keys).
+Phase 1 in progress: repo, signing keys and CI set up. Next: first image build, then install in a VM.
 
 ## Repository layout
 Built from the [Universal Blue image-template](https://github.com/ublue-os/image-template) (Apache-2.0, see `LICENSE`).
@@ -35,8 +35,26 @@ Built from the [Universal Blue image-template](https://github.com/ublue-os/image
 ## One-time setup (GitHub)
 1. Create the GitHub repository and push this repo.
 2. Add the private signing key as a repository secret named `SIGNING_SECRET` (the contents of `cosign.key`).
-3. After the first successful build, make the `pcos` package on ghcr.io **public**, so PCs can download updates without logging in.
-4. Back up `cosign.key` offline (e.g. an encrypted USB drive), then delete it from this folder. **Never commit it.**
+3. Back up `cosign.key` offline (e.g. an encrypted USB drive), then delete it from this folder. **Never commit it.**
+
+## Private image: letting a PC download updates
+The repository and the `pcos` image on ghcr.io are **private**, so each installed PC must log in to ghcr.io to pull updates:
+1. Create a GitHub **classic personal access token** with only the `read:packages` scope (no expiry, or set a reminder to renew it).
+2. On the installed PC, run:
+   ```bash
+   sudo podman login ghcr.io --authfile /etc/ostree/auth.json -u venkateshguggilla
+   ```
+   ```bash
+   sudo chmod 600 /etc/ostree/auth.json
+   ```
+3. Check that updates work:
+   ```bash
+   sudo bootc upgrade --check
+   ```
+
+The token can only read packages, so a leaked token can't change the repo or publish images. Updates are still verified against `keys/cosign.pub`.
+
+**GitHub Actions minutes:** private repos get a limited free monthly quota (public repos are free). Each image build takes roughly 20–40 minutes, and `build.yml` runs daily. Change its `schedule` to weekly if you get close to the limit.
 
 ## Building the installer ISO
 GitHub → Actions → **Build PC OS installer ISO** → Run workflow (platform `amd64`). Download the `anaconda-iso` artifact.
