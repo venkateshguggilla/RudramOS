@@ -1,0 +1,141 @@
+#!/bin/bash
+# PC OS admin approval mode (docs/DESIGN.md §4.3). Run from a terminal with sudo.
+#
+#   status               show the current mode and registered security keys
+#   add-key [user]       register a FIDO2 security key (run once per key; register a backup key too)
+#   remove-keys [user]   remove all security keys of a user
+#   test [user]          check password + key works, without changing anything
+#   strong               require password + security key touch for every admin action
+#   standard             require only the password (Mac-like)
+#
+# Lockout protection: "strong" is refused until the user running it has a registered key
+# and passes the same password + touch test. Leaving Strong mode needs the key (via sudo).
+
+set -euo pipefail
+
+# Testability overrides
+PAM_DIR="${PAM_DIR:-/etc/pam.d}"
+TEMPLATE_DIR="${TEMPLATE_DIR:-/usr/share/pcos/pam}"
+U2F_MAPPINGS="${U2F_MAPPINGS:-/etc/u2f_mappings}"
+MODE_FILE="${MODE_FILE:-/etc/pcos/admin-mode}"
+ORIGIN="pam://pcos"
+
+die() {
+    echo "$*" >&2
+    exit 1
+}
+
+require_root() {
+    # PCOS_TEST_ROOT lets tests/test-admin-mode.sh run without root
+    [[ "${EUID}" -eq 0 || "${PCOS_TEST_ROOT:-}" == 1 ]] || die "Run with sudo: sudo $(basename "$0") $*"
+}
+
+current_mode() {
+    cat "${MODE_FILE}" 2>/dev/null || echo standard
+}
+
+# User the command is about: explicit argument, else whoever ran sudo
+target_user() {
+    local user="${1:-${SUDO_USER:-}}"
+    [[ -n "${user}" ]] || die "No user given and not run through sudo."
+    id "${user}" >/dev/null 2>&1 || die "No such user: ${user}"
+    echo "${user}"
+}
+
+key_count() {
+    local line
+    line=$(grep -E "^$1:" "${U2F_MAPPINGS}" 2>/dev/null | head -n1) || true
+    [[ -z "${line}" ]] && { echo 0; return; }
+    # user:key1:key2:... -> number of colon-separated key entries
+    awk -F: '{ print NF - 1 }' <<<"${line}"
+}
+
+install_template() {
+    local mode="$1"
+    install -m 0644 "${TEMPLATE_DIR}/pcos-admin.${mode}" "${PAM_DIR}/pcos-admin"
+    mkdir -p "$(dirname "${MODE_FILE}")"
+    echo "${mode}" >"${MODE_FILE}"
+}
+
+# Runs the Strong-mode PAM stack for a user through pamtester, using a temporary
+# service so nothing changes if it fails
+test_strong() {
+    local user="$1"
+    local service="pcos-admin-test-$$"
+    install -m 0644 "${TEMPLATE_DIR}/pcos-admin.strong" "${PAM_DIR}/${service}"
+    trap 'rm -f "${PAM_DIR}/${service}"' RETURN
+    echo "Testing for ${user}: enter the password, then touch the security key when it blinks."
+    pamtester "${service}" "${user}" authenticate
+}
+
+cmd="${1:-status}"
+shift || true
+case "${cmd}" in
+status)
+    echo "Admin approval mode: $(current_mode)"
+    if [[ -r "${U2F_MAPPINGS}" ]]; then
+        while IFS=: read -r user _; do
+            [[ -n "${user}" ]] && echo "Security keys for ${user}: $(key_count "${user}")"
+        done <"${U2F_MAPPINGS}"
+    fi
+    ;;
+add-key)
+    require_root "${cmd}"
+    user=$(target_user "${1:-}")
+    echo "Insert the security key for ${user}, then touch it when it blinks (enter its PIN if asked)."
+    new=$(pamu2fcfg -u "${user}" -o "${ORIGIN}" -i "${ORIGIN}") || die "Key registration failed or was cancelled."
+    entry="${new#*:}"
+    [[ -n "${entry}" && "${entry}" != "${new}" ]] || die "Unexpected output from pamu2fcfg."
+    tmp=$(mktemp)
+    if grep -qE "^${user}:" "${U2F_MAPPINGS}" 2>/dev/null; then
+        awk -v u="${user}" -v e="${entry}" -F: '$1 == u { print $0 ":" e; next } { print }' "${U2F_MAPPINGS}" >"${tmp}"
+    else
+        cat "${U2F_MAPPINGS}" >"${tmp}" 2>/dev/null || true
+        echo "${user}:${entry}" >>"${tmp}"
+    fi
+    install -m 0644 "${tmp}" "${U2F_MAPPINGS}"
+    rm -f "${tmp}"
+    count=$(key_count "${user}")
+    echo "Registered. ${user} now has ${count} security key(s)."
+    if (( count < 2 )); then
+        echo "Tip: register a backup key too: sudo $(basename "$0") add-key"
+    fi
+    ;;
+remove-keys)
+    require_root "${cmd}"
+    user=$(target_user "${1:-}")
+    if [[ "$(current_mode)" == strong && "${user}" == "${SUDO_USER:-}" ]]; then
+        die "Refusing: you're in Strong mode and would lose admin access. Switch to standard first."
+    fi
+    tmp=$(mktemp)
+    grep -vE "^${user}:" "${U2F_MAPPINGS}" >"${tmp}" || true
+    install -m 0644 "${tmp}" "${U2F_MAPPINGS}"
+    rm -f "${tmp}"
+    echo "Removed all security keys for ${user}."
+    ;;
+test)
+    require_root "${cmd}"
+    user=$(target_user "${1:-}")
+    (( $(key_count "${user}") > 0 )) || die "${user} has no registered security key. Run: sudo $(basename "$0") add-key"
+    test_strong "${user}" && echo "Test passed."
+    ;;
+strong)
+    require_root "${cmd}"
+    [[ "$(current_mode)" == strong ]] && { echo "Already in Strong mode."; exit 0; }
+    user=$(target_user "")
+    (( $(key_count "${user}") > 0 )) || die "Refusing: ${user} has no registered security key. Run: sudo $(basename "$0") add-key"
+    test_strong "${user}" || die "Test failed, staying in Standard mode."
+    install_template strong
+    echo "Strong mode is on: admin actions now need your password + a touch of your security key."
+    if (( $(key_count "${user}") < 2 )); then
+        echo "Warning: only one key registered. If you lose it, you'll need the recovery steps in the README."
+    fi
+    ;;
+standard)
+    require_root "${cmd}"
+    install_template standard
+    echo "Standard mode is on: admin actions need only your password."
+    ;;
+-h | --help | help) sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//' ;;
+*) die "Unknown command: ${cmd}. See: $(basename "$0") --help" ;;
+esac

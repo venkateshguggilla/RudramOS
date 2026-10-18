@@ -12,7 +12,7 @@ SIGNING_PUBKEY="/etc/pki/containers/pcos.pub"
 ### System files
 # Copy the contents of system_files/ in the git repo to /
 cp -avf "/ctx/system_files"/. /
-chmod 0755 /usr/bin/pcos-disk-security /usr/bin/pcos-driver-assistant /usr/libexec/pcos/pcos-gpu-detect /usr/libexec/pcos/pcos-gpu-switch
+chmod 0755 /usr/bin/pcos-admin-mode /usr/bin/pcos-disk-security /usr/bin/pcos-driver-assistant /usr/libexec/pcos/pcos-gpu-detect /usr/libexec/pcos/pcos-gpu-switch
 
 ### Branding (Phase 1 basics; full branding in Phase 12)
 sed -i 's/^PRETTY_NAME=.*/PRETTY_NAME="PC OS"/' /usr/lib/os-release
@@ -47,8 +47,24 @@ for repo in "${IMAGE_REPOS[@]}"; do
 done
 
 ### Packages
-# No extra packages yet. Later phases install them here, e.g.:
-# dnf5 install -y usbguard fapolicyd pam-u2f
+# pam-u2f/pamu2fcfg: FIDO2 security keys for Strong admin mode; pamtester: test before enabling it
+dnf5 install -y pam-u2f pamu2fcfg pamtester
+
+### Admin approval modes (docs/DESIGN.md §4.3)
+# sudo and polkit (all desktop admin prompts) authenticate through /etc/pam.d/pcos-admin,
+# which pcos-admin-mode switches between the Standard and Strong templates.
+for service in sudo polkit-1; do
+    sed -i -E 's/^auth([[:space:]]+)include([[:space:]]+)system-auth[[:space:]]*$/auth\1include\2pcos-admin/' "/etc/pam.d/${service}"
+    if ! grep -qE '^auth[[:space:]]+include[[:space:]]+pcos-admin' "/etc/pam.d/${service}" ||
+        grep -qE '^auth[[:space:]]+include[[:space:]]+system-auth' "/etc/pam.d/${service}"; then
+        echo "ERROR: could not route /etc/pam.d/${service} auth through pcos-admin:" >&2
+        cat "/etc/pam.d/${service}" >&2
+        exit 1
+    fi
+done
+install -m 0644 -o root -g root /dev/null /etc/u2f_mappings
+mkdir -p /etc/pcos
+echo standard > /etc/pcos/admin-mode
 
 ### Updates
 # Bluefin already enables automatic updates (uupd.timer: bootc image + Flatpaks,

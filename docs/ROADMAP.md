@@ -85,12 +85,18 @@ Tracks B and C start on **Windows** (refactor + cross-platform UI) and don't dep
 ---
 
 ## Phase 4: Admin approval modes + Control Center skeleton (L)
-- [ ] `/etc/pam.d/pcos-admin` include, used by `sudo` and `polkit-1`; `.standard` and `.strong` variants
-- [ ] `pam_u2f` with root-owned `/etc/u2f_mappings`; enrollment through `pamu2fcfg`
-- [ ] **`pcosd`** privileged helper (D-Bus system bus, polkit actions `org.pcos.*`): `SetAdminMode`, `RegisterFidoKey`, `RemoveFidoKey`, `ListFidoKeys`
-- [ ] **`pcos-control`** app (GTK4/libadwaita, Python): Security page → Admin protection (Standard/Strong, add/remove/test keys)
-- [ ] Rule: Strong → Standard needs password **+ key**
-- [ ] Recovery path: recovery key → reset to Standard
+**Part 1: approval engine (done)**
+- [x] `/etc/pam.d/pcos-admin` include, used by `sudo` and `polkit-1` (build fails if the routing can't be applied); templates `/usr/share/pcos/pam/pcos-admin.{standard,strong}`
+- [x] Strong = password (`substack system-auth`) + `pam_u2f` touch, keys in root-owned `/etc/u2f_mappings`, origin `pam://pcos`
+- [x] `pcos-admin-mode` (`status`, `add-key`, `remove-keys`, `test`, `strong`, `standard`); packages `pam-u2f`, `pamu2fcfg`, `pamtester`
+- [x] Lockout protection: Strong refused without a registered key and a passing password + touch test (`pamtester` on a temporary PAM service); can't remove your own keys while in Strong mode; leaving Strong needs the key because it runs through sudo
+- [x] Tests: `tests/test-admin-mode.sh` (21 cases, stubbed key tools) in CI
+- [ ] Verify on real hardware with FIDO2 keys (Hyper-V can't pass USB devices to Linux VMs)
+- [ ] Recovery procedure when all keys are lost (installer shell + recovery key), tested
+
+**Part 2: privileged helper + Control Center**
+- [ ] **`pcosd`** privileged helper (D-Bus system bus, polkit actions `org.pcos.*`)
+- [ ] **`pcos-control`** app (GTK4/libadwaita, Python): Security page → Admin protection, Disk encryption, Graphics driver
 - [ ] Optional separate admin password (Standard mode)
 - [ ] auditd rules for approvals; Activity log page (basic)
 
