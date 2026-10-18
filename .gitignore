@@ -1,0 +1,13 @@
+# Signing keys: NEVER commit private keys
+cosign.key
+*.key
+*.priv
+*.pem
+!keys/*.pub
+
+# Build output
+_build_*
+_build-*/**
+*_chunkah_*
+*_rpm-ostree_*
+output

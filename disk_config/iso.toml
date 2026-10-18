@@ -1,0 +1,23 @@
+# Installer ISO configuration (bootc-image-builder, anaconda-iso)
+# After installing, switch the system to track the signed image in the registry.
+# --enforce-container-sigpolicy makes bootc verify the cosign signature on every update.
+[customizations.installer.kickstart]
+contents = """
+%post
+bootc switch --mutate-in-place --enforce-container-sigpolicy --transport registry ghcr.io/venkateshguggilla/pcos:latest
+%end
+"""
+
+[customizations.installer.modules]
+enable = [
+  "org.fedoraproject.Anaconda.Modules.Storage",
+  "org.fedoraproject.Anaconda.Modules.Runtime"
+]
+disable = [
+  "org.fedoraproject.Anaconda.Modules.Network",
+  "org.fedoraproject.Anaconda.Modules.Security",
+  "org.fedoraproject.Anaconda.Modules.Services",
+  "org.fedoraproject.Anaconda.Modules.Users",
+  "org.fedoraproject.Anaconda.Modules.Subscription",
+  "org.fedoraproject.Anaconda.Modules.Timezone"
+]
