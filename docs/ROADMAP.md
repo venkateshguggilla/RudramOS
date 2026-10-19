@@ -203,9 +203,11 @@ Repo: `C:\Venky\work\temp_monitor` (or `apps/temp-monitor`)
 - [ ] Still to verify by hand: tray icon number rendering, elevated run (CPU/RAM temps via PawnIO), start-with-Windows task switching to the new exe
 
 ### 9c: Linux sensor provider (M)
-- [ ] hwmon/proc/amdgpu/NVML/nvme/drivetemp readers (DESIGN §9.1); load `drivetemp` in the image
-- [ ] AppIndicator top-bar temperature; XDG autostart
-- [ ] RPM in the image + `.desktop` + icon
+- [x] `TempMonitor.Sensors.Linux` (no root): coretemp / k10temp / zenpower + `/proc/stat` + cpufreq; amdgpu hwmon/sysfs (edge, junction, busy, VRAM, power, clock); NVML for NVIDIA; Intel iGPU noted; `/proc/meminfo` + jc42/spd5118; NVMe/drivetemp hwmon, `/proc/diskstats`, udev for USB, space traced through partitions and LUKS/device-mapper; GPU names from `pci.ids`
+- [x] Avalonia app targets `net8.0-windows` + `net8.0` (Linux): Unix-socket single instance, XDG autostart, `--print` for terminals; compressed single-file `linux-x64` publish (42 MB)
+- [x] 25 tests against fake `/sys` and `/proc` trees (MacBook, NVIDIA desktop, Ryzen); verified on real Linux (WSL Ubuntu 24.04) with `--print`
+- [ ] RudramOS image: load `drivetemp` (`/usr/lib/modules-load.d`), ship Temp Monitor (build in CI from the temp_monitor repo, install to `/usr/lib/temp-monitor` + `.desktop` + icon), AppIndicator top-bar icon check on GNOME
+- [ ] Real-hardware check on RudramOS: MacBook (coretemp, amdgpu, NVMe behind LUKS), RTX 3060 (NVML), GTX 1050 Ti (NVML 580)
 
 ### 9d: Fan control (L)
 - [ ] Root **fan daemon** (D-Bus + polkit): hwmon PWM, NVML, amdgpu fan curve, liquidctl
