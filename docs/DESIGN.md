@@ -260,6 +260,11 @@ Selected from secureblue / KSPP, avoiding settings known to break apps.
 - **Initial rules:** generated at first boot from the devices already present (internal keyboard, trackpad, webcam, Bluetooth chip). Registered FIDO2 keys are always allowed.
 - **Rule matching:** vendor/product ID **+ serial + interface layout (`with-interface`)** + parent hub where it makes sense. This makes copying a trusted device's identity harder.
 
+### 6.1b How it's built (Phase 7)
+- Root watcher `pcos-usb-watch` polls `usbguard list-devices --blocked` and writes `/run/pcos/usb-pending/<id>`; the session prompt reads those files (no D-Bus).
+- `usbguard-dbus` isn't installed: GNOME's `gsd-usb-protection` would otherwise authorize devices on unlock and bypass the prompt. `org.gnome.desktop.privacy usb-protection` is set to false as well.
+- Lock screen: the prompt asks only while the session is unlocked (`org.gnome.ScreenSaver.GetActive`), so devices plugged in while locked stay blocked until you unlock and approve.
+
 ### 6.2 Prompt app: `pcos-usb-prompt`
 - A user-session service that listens to the USBGuard D-Bus signals (`DevicePresenceChanged`). When a device is blocked, it shows:
 

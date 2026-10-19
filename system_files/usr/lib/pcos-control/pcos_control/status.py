@@ -51,6 +51,21 @@ class AppsStatus:
 
 
 @dataclass
+class UsbDevice:
+    id: str
+    kind: str
+    name: str
+    level: str  # ok | caution | danger
+    message: str
+
+
+@dataclass
+class UsbStatus:
+    mode: str  # ask | allow-input | off
+    pending: list[UsbDevice] = field(default_factory=list)
+
+
+@dataclass
 class Network:
     uuid: str
     name: str
@@ -162,6 +177,29 @@ def network_status(trusted_file: str = "/etc/pcos/trusted-networks", run=subproc
     except (OSError, subprocess.SubprocessError):
         pass
     return NetworkStatus(networks=networks, shared=shared)
+
+
+def usb_status(
+    mode_file: str = "/etc/pcos/usb-mode",
+    pending_dir: str = "/run/pcos/usb-pending",
+    describe: str = "/usr/libexec/pcos/pcos-usb-describe",
+    run=subprocess.run,
+) -> UsbStatus:
+    mode = _read(mode_file, "ask") or "ask"
+    pending: list[UsbDevice] = []
+    try:
+        ids = sorted((f for f in os.listdir(pending_dir) if f.isdigit()), key=int)
+    except OSError:
+        ids = []
+    for dev_id in ids:
+        rule = _read(os.path.join(pending_dir, dev_id))
+        try:
+            out = run([describe, rule], capture_output=True, text=True, timeout=10).stdout.strip()
+            kind, name, level, message = (out.split("\t") + ["", "", "", ""])[:4]
+        except (OSError, subprocess.SubprocessError):
+            kind, name, level, message = "USB device", f"Device {dev_id}", "ok", ""
+        pending.append(UsbDevice(id=dev_id, kind=kind, name=name, level=level or "ok", message=message))
+    return UsbStatus(mode=mode, pending=pending)
 
 
 def _image_name(ref: str) -> str:

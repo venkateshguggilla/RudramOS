@@ -12,7 +12,7 @@ SIGNING_PUBKEY="/etc/pki/containers/pcos.pub"
 ### System files
 # Copy the contents of system_files/ in the git repo to /
 cp -avf "/ctx/system_files"/. /
-chmod 0755 /usr/bin/pcos-network /usr/libexec/pcos/pcos-network-prompt /usr/lib/NetworkManager/dispatcher.d/50-pcos-network-trust /usr/bin/pcos-app-guard /usr/bin/pcos-browser-extensions /usr/libexec/pcos/pcos-app-guard-notify /usr/bin/pcos-control /usr/libexec/pcos/pcos-terminal-run /usr/bin/pcos-admin-mode /usr/bin/pcos-disk-security /usr/bin/pcos-driver-assistant /usr/libexec/pcos/pcos-gpu-detect /usr/libexec/pcos/pcos-gpu-switch
+chmod 0755 /usr/bin/pcos-usb /usr/libexec/pcos/pcos-usb-describe /usr/libexec/pcos/pcos-usb-watch /usr/libexec/pcos/pcos-usb-prompt /usr/libexec/pcos/pcos-usb-firstboot /usr/bin/pcos-network /usr/libexec/pcos/pcos-network-prompt /usr/lib/NetworkManager/dispatcher.d/50-pcos-network-trust /usr/bin/pcos-app-guard /usr/bin/pcos-browser-extensions /usr/libexec/pcos/pcos-app-guard-notify /usr/bin/pcos-control /usr/libexec/pcos/pcos-terminal-run /usr/bin/pcos-admin-mode /usr/bin/pcos-disk-security /usr/bin/pcos-driver-assistant /usr/libexec/pcos/pcos-gpu-detect /usr/libexec/pcos/pcos-gpu-switch
 
 ### Branding (Phase 1 basics; full branding in Phase 12)
 sed -i 's/^PRETTY_NAME=.*/PRETTY_NAME="RudramOS"/' /usr/lib/os-release
@@ -109,6 +109,31 @@ if [[ -f "${AVAHI_CONF}" ]]; then
     sed -i -E 's/^#?[[:space:]]*disable-publishing[[:space:]]*=.*/disable-publishing=yes/' "${AVAHI_CONF}"
     grep -qx 'disable-publishing=yes' "${AVAHI_CONF}" || { echo "ERROR: could not configure ${AVAHI_CONF}" >&2; exit 1; }
 fi
+
+### USB device approval with USBGuard (docs/DESIGN.md §6)
+# New USB devices are blocked until approved; devices connected at first boot are trusted
+# (pcos-usb-firstboot). Only root may talk to the daemon: approvals go through pcos-usb + polkit.
+# usbguard-dbus is deliberately not installed (GNOME would auto-allow devices on unlock).
+dnf5 install -y usbguard
+USBGUARD_CONF=/etc/usbguard/usbguard-daemon.conf
+for setting in ImplicitPolicyTarget=block PresentDevicePolicy=apply-policy PresentControllerPolicy=keep \
+    InsertedDevicePolicy=apply-policy IPCAllowedUsers=root IPCAllowedGroups= RuleFolder=/etc/usbguard/rules.d/; do
+    key="${setting%%=*}"
+    if grep -qE "^#?${key}=" "${USBGUARD_CONF}"; then
+        sed -i -E "s|^#?${key}=.*|${setting}|" "${USBGUARD_CONF}"
+    else
+        echo "${setting}" >>"${USBGUARD_CONF}"
+    fi
+    grep -qxF "${setting}" "${USBGUARD_CONF}" || { echo "ERROR: could not set ${setting} in ${USBGUARD_CONF}" >&2; exit 1; }
+done
+mkdir -p /etc/usbguard/rules.d
+chmod 0700 /etc/usbguard/rules.d
+: >/etc/usbguard/rules.conf
+chmod 0600 /etc/usbguard/rules.conf
+echo ask >/etc/pcos/usb-mode
+systemctl enable usbguard.service pcos-usb-firstboot.service pcos-usb-watch.service
+# GNOME defaults: no autorun, don't open new drives automatically, GNOME's own USB protection off
+dconf update
 
 ### Check the Control Center loads (imports GTK/Adw, no display needed)
 python3 -B -c 'import sys; sys.path.insert(0, "/usr/lib/pcos-control"); import pcos_control.app'

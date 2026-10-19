@@ -1,0 +1,54 @@
+#!/bin/bash
+# RudramOS USB approval prompt (desktop session). Shows each newly blocked USB device in plain
+# words with Block / Allow once / Always allow. Allowing needs admin approval (pkexec).
+# While the screen is locked nothing is asked: devices stay blocked until you unlock.
+
+set -uo pipefail
+
+PENDING=/run/pcos/usb-pending
+DESCRIBE=/usr/libexec/pcos/pcos-usb-describe
+declare -A asked=()
+
+screen_locked() {
+    gdbus call --session --dest org.gnome.ScreenSaver --object-path /org/gnome/ScreenSaver \
+        --method org.gnome.ScreenSaver.GetActive 2>/dev/null | grep -q true
+}
+
+ask() {
+    local id="$1" rule="$2" kind name level message urgency=normal choice
+    IFS=$'\t' read -r kind name level message < <("${DESCRIBE}" "${rule}")
+    local actions=(--action=block="Keep blocked")
+    case "${level}" in
+    danger)
+        urgency=critical
+        actions+=(--action=once="Allow anyway (once)") ;;
+    *)
+        if [[ "${kind}" == "Security key" ]]; then
+            actions+=(--action=always="Allow")
+        else
+            actions+=(--action=once="Allow once" --action=always="Always allow")
+        fi ;;
+    esac
+    local title="New USB device: ${name}"
+    [[ "${level}" == danger ]] && title="⚠ Suspicious USB device: ${name}"
+    choice=$(notify-send --app-name="RudramOS" --icon=drive-removable-media --urgency="${urgency}" --wait \
+        "${actions[@]}" "${title}" "${kind}. ${message}")
+    case "${choice}" in
+    once) pkexec /usr/bin/pcos-usb allow "${id}" >/dev/null ;;
+    always) pkexec /usr/bin/pcos-usb allow "${id}" --permanent >/dev/null ;;
+    *) ;; # Keep blocked, or dismissed
+    esac
+}
+
+while true; do
+    if [[ -d "${PENDING}" ]] && ! screen_locked; then
+        for f in "${PENDING}"/*; do
+            [[ -f "${f}" ]] || continue
+            id=$(basename "${f}")
+            [[ -n "${asked[${id}]+x}" ]] && continue
+            asked[${id}]=1
+            ask "${id}" "$(cat "${f}")" &
+        done
+    fi
+    sleep 2
+done

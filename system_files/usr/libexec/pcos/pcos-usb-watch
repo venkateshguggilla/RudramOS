@@ -1,0 +1,37 @@
+#!/bin/bash
+# RudramOS USB watcher (root). Publishes blocked devices to /run/pcos/usb-pending/<id>
+# (one USBGuard rule line each, world-readable, no secrets) for the desktop prompt.
+# Plain USB hubs are allowed right away: a hub does nothing by itself, and every device
+# behind it is still checked separately.
+
+set -uo pipefail
+
+PENDING=/run/pcos/usb-pending
+mkdir -p "${PENDING}"
+chmod 0755 /run/pcos "${PENDING}"
+
+while true; do
+    if blocked=$(usbguard list-devices --blocked 2>/dev/null); then
+        declare -A now=()
+        while IFS= read -r line; do
+            [[ "${line}" =~ ^([0-9]+):\ block ]] || continue
+            id="${BASH_REMATCH[1]}"
+            # Interfaces: "with-interface 09:00:00" or "with-interface { 09:00:01 09:00:02 }"
+            ifaces=$(sed -nE 's/.* with-interface (\{[^}]*\}|[0-9a-f:]+).*/\1/p' <<<"${line}" | tr -d '{}')
+            if [[ -n "${ifaces// /}" ]] && ! grep -qvE '^09:' < <(tr ' ' '\n' <<<"${ifaces}" | grep .); then
+                usbguard allow-device "${id}" >/dev/null 2>&1 || true
+                continue
+            fi
+            now[${id}]=1
+            [[ -e "${PENDING}/${id}" ]] || { printf '%s\n' "${line#*: }" >"${PENDING}/${id}.tmp" && chmod 0644 "${PENDING}/${id}.tmp" && mv -f "${PENDING}/${id}.tmp" "${PENDING}/${id}"; }
+        done <<<"${blocked}"
+        # Unplugged or approved devices: remove their entries
+        for f in "${PENDING}"/*; do
+            [[ -e "${f}" ]] || continue
+            id=$(basename "${f}")
+            [[ -n "${now[${id}]+x}" ]] || rm -f "${f}"
+        done
+        unset now
+    fi
+    sleep 2
+done

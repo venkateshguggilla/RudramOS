@@ -74,6 +74,8 @@ jobs:
           bash tests/test-app-guard.sh
           bash tests/test-browser-extensions.sh
           bash tests/test-network.sh
+          bash tests/test-usb-describe.sh
+          bash tests/test-usb.sh
           python3 -m unittest discover -s tests -p "test_*.py" -v
 
       - name: Image Name

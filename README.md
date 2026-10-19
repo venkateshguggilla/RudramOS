@@ -119,6 +119,14 @@ sudo pcos-admin-mode strong
   sudo pcos-network share phone on
   ```
 
+## USB devices
+- A newly connected USB device is **blocked until you allow it**. A notification describes it in plain words: **Keep blocked / Allow once / Always allow**. Devices connected when RudramOS first started are trusted.
+- **Suspicious devices** (a "USB stick" that can also type like a keyboard, or one that's also a network adapter) get a red warning. These are common USB attacks.
+- Nothing is asked, and nothing new works, while the screen is locked.
+- Security keys (YubiKey, Nitrokey, ...) are always allowed permanently once approved.
+- Modes in Control Center → **USB**: *Ask* (default), *Allow keyboards and mice*, *Off*. Or `sudo pcos-usb mode allow-input`.
+- **No working keyboard** (for example after replacing a desktop's only keyboard): at the boot menu press **e**, add `systemd.mask=usbguard.service` to the line starting with `linux`, then press **Ctrl+X**. This boots once with USB protection off, so you can approve the new keyboard.
+
 ## Disk encryption
 Tick **Encrypt my data** in the installer's **Installation Destination** and choose a passphrase. After the first login, set up how the drive unlocks:
 ```bash

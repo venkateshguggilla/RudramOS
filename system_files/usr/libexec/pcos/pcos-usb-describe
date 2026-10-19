@@ -1,0 +1,72 @@
+#!/bin/bash
+# Describes a USB device from its USBGuard rule line in plain words, with BadUSB warnings.
+# Usage: pcos-usb-describe '<usbguard device rule>'   (or the rule on stdin)
+# Output (tab-separated): <kind>\t<name>\t<level>\t<message>
+#   kind:  e.g. "Storage", "Keyboard + Storage", "Security key"
+#   level: ok | caution | danger
+#
+# USB interface classes: 01 audio, 02 CDC comm, 03 HID (03:01:01 keyboard, 03:01:02 mouse),
+# 06 still image, 07 printer, 08 mass storage, 09 hub, 0a CDC data, 0b smart card,
+# 0e video, e0 wireless (e0:01:01 Bluetooth, e0:01:03 RNDIS), ef:04:01 RNDIS, ff vendor-specific.
+
+set -uo pipefail
+
+rule="${1:-$(cat)}"
+
+# Security-key makers (FIDO2/U2F). Their keys often also have keyboard (OTP) and smart-card interfaces.
+security_key() {
+    case "$1" in
+    1050:* | 20a0:42b1 | 20a0:42b2 | 20a0:4287 | 096e:* | 18d1:5026 | 349e:* | 1209:beee | 0483:a2ca | 32a3:3201) return 0 ;;
+    *) return 1 ;;
+    esac
+}
+
+vidpid=$(grep -oE ' id [0-9a-f]{4}:[0-9a-f]{4}' <<<"${rule}" | head -n1 | cut -c5-)
+name=$(sed -nE 's/.* name "([^"]*)".*/\1/p' <<<"${rule}")
+[[ -n "${name}" ]] || name="USB device ${vidpid}"
+ifaces=$(sed -nE 's/.* with-interface (\{[^}]*\}|[0-9a-f:]+).*/\1/p' <<<"${rule}" | tr -d '{}')
+
+has() { grep -qE "(^| )$1" <<<" ${ifaces} "; }
+
+kinds=()
+if security_key "${vidpid}"; then
+    kinds+=("Security key")
+else
+    has '03:01:01' && kinds+=("Keyboard")
+    has '03:01:02' && kinds+=("Mouse")
+    if has '03:' && ! has '03:01:01' && ! has '03:01:02'; then kinds+=("Input device"); fi
+    has '08:' && kinds+=("Storage")
+    has '0b:' && kinds+=("Smart card")
+fi
+network=0
+if has '02:' || has '0a:' || has 'e0:01:03' || has 'ef:04:01'; then kinds+=("Network adapter"); network=1; fi
+has 'e0:01:01' && kinds+=("Bluetooth adapter")
+has '01:' && kinds+=("Audio")
+has '0e:' && kinds+=("Camera")
+has '06:' && kinds+=("Camera/phone (photos)")
+has '07:' && kinds+=("Printer")
+has '09:' && kinds+=("Hub")
+has 'ff:' && (( ${#kinds[@]} == 0 )) && kinds+=("Special device (vendor-specific)")
+(( ${#kinds[@]} )) || kinds+=("Unknown device")
+
+kind=$(IFS='+'; echo "${kinds[*]}" | sed 's/+/ + /g')
+
+level=ok
+message="Allow it if you just plugged it in and it's yours."
+if security_key "${vidpid}"; then
+    message="A security key. Allowing it is always permanent so it can approve admin actions."
+elif has '08:' && has '03:01:01'; then
+    level=danger
+    message="It says it's a storage drive but can also type like a keyboard. This is a common USB attack: block it unless you're sure."
+elif (( network )) && has '08:'; then
+    level=danger
+    message="A storage drive that can also act as a network adapter and redirect your internet traffic. Block it unless you're sure."
+elif (( network )); then
+    level=caution
+    message="It can act as a network adapter and redirect your internet traffic. Allow it only if it's your phone (tethering) or your adapter."
+elif has '03:01:01'; then
+    level=caution
+    message="It can type on this computer. Allow it only if it's your keyboard."
+fi
+
+printf '%s\t%s\t%s\t%s\n' "${kind}" "${name}" "${level}" "${message}"

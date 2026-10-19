@@ -1,0 +1,121 @@
+#!/bin/bash
+# RudramOS USB device approval (docs/DESIGN.md §6), on top of USBGuard.
+# New USB devices are blocked until an admin approves them.
+#
+#   status                     protection mode and blocked/allowed devices
+#   devices                    connected devices, described in plain words
+#   allow <id> [--permanent]   allow a blocked device now (--permanent: also next time)
+#                              security keys are always allowed permanently
+#   block <id>                 block a connected device
+#   rules                      devices that are always allowed
+#   forget <rule number>       stop always allowing a device (see: rules)
+#   mode ask|allow-input|off   ask: approve every new device (default)
+#                              allow-input: keyboards and mice work without asking, everything else asks
+#                              off: allow all USB devices (not recommended)
+
+set -euo pipefail
+
+# Testability overrides
+MODE_FILE="${MODE_FILE:-/etc/pcos/usb-mode}"
+RULES_DIR="${RULES_DIR:-/etc/usbguard/rules.d}"
+DESCRIBE="${DESCRIBE:-/usr/libexec/pcos/pcos-usb-describe}"
+
+die() {
+    echo "$*" >&2
+    exit 1
+}
+
+require_root() {
+    # PCOS_TEST_ROOT lets tests/test-usb.sh run without root
+    [[ "${EUID}" -eq 0 || "${PCOS_TEST_ROOT:-}" == 1 ]] || die "Run with sudo: sudo $(basename "$0") $*"
+}
+
+current_mode() {
+    cat "${MODE_FILE}" 2>/dev/null || echo ask
+}
+
+# "<id>: <target> id ... " line for one device
+device_line() {
+    usbguard list-devices | grep -E "^$1: " | head -n1
+}
+
+describe() {
+    "${DESCRIBE}" "$1"
+}
+
+cmd="${1:-status}"
+shift || true
+case "${cmd}" in
+status)
+    echo "USB protection: $(current_mode)"
+    if [[ "$(current_mode)" != off ]] && ! systemctl is-active --quiet usbguard; then
+        echo "Warning: the USBGuard service isn't running, so new devices aren't checked."
+    fi
+    echo "Blocked now: $(usbguard list-devices --blocked 2>/dev/null | grep -c . || true)"
+    echo "Always allowed: $(usbguard list-rules 2>/dev/null | grep -c ': allow' || true)"
+    ;;
+devices)
+    usbguard list-devices | while IFS= read -r line; do
+        id="${line%%:*}"
+        target=$(awk '{ print $2 }' <<<"${line}")
+        IFS=$'\t' read -r kind name level _ < <(describe "${line}")
+        printf '%-4s %-6s %s: %s%s\n' "${id}" "${target}" "${name}" "${kind}" "$([[ "${level}" != ok ]] && echo " [${level}]")"
+    done
+    ;;
+allow)
+    require_root "${cmd}"
+    [[ $# -ge 1 && "$1" =~ ^[0-9]+$ ]] || die "usage: $(basename "$0") allow <id> [--permanent]"
+    id="$1"
+    permanent="${2:-}"
+    line=$(device_line "${id}") || true
+    [[ -n "${line}" ]] || die "No connected USB device with id ${id} (see: $(basename "$0") devices)"
+    IFS=$'\t' read -r kind name _ _ < <(describe "${line}")
+    [[ "${kind}" == "Security key" ]] && permanent=--permanent
+    if [[ "${permanent}" == --permanent ]]; then
+        usbguard allow-device -p "${id}"
+        echo "Allowed ${name} (${kind}), now and next time."
+    else
+        usbguard allow-device "${id}"
+        echo "Allowed ${name} (${kind}) until it's unplugged."
+    fi
+    ;;
+block)
+    require_root "${cmd}"
+    [[ $# -eq 1 && "$1" =~ ^[0-9]+$ ]] || die "usage: $(basename "$0") block <id>"
+    usbguard block-device "$1"
+    echo "Blocked device $1."
+    ;;
+rules) usbguard list-rules ;;
+forget)
+    require_root "${cmd}"
+    [[ $# -eq 1 && "$1" =~ ^[0-9]+$ ]] || die "usage: $(basename "$0") forget <rule number>  (see: $(basename "$0") rules)"
+    usbguard remove-rule "$1"
+    echo "Rule $1 removed. That device will be asked about next time."
+    ;;
+mode)
+    require_root "${cmd}"
+    [[ $# -eq 1 ]] || die "usage: $(basename "$0") mode ask|allow-input|off"
+    mkdir -p "${RULES_DIR}" "$(dirname "${MODE_FILE}")"
+    rm -f "${RULES_DIR}/50-pcos-input.conf" "${RULES_DIR}/99-pcos-off.conf"
+    case "$1" in
+    ask) ;;
+    allow-input)
+        # match-all: every interface of the device must be keyboard, mouse or generic HID,
+        # so a "keyboard + storage" stick is still asked about
+        echo 'allow with-interface match-all { 03:01:01 03:01:02 03:00:00 }' >"${RULES_DIR}/50-pcos-input.conf"
+        chmod 0600 "${RULES_DIR}/50-pcos-input.conf"
+        ;;
+    off)
+        echo 'allow' >"${RULES_DIR}/99-pcos-off.conf"
+        chmod 0600 "${RULES_DIR}/99-pcos-off.conf"
+        ;;
+    *) die "usage: $(basename "$0") mode ask|allow-input|off" ;;
+    esac
+    echo "$1" >"${MODE_FILE}"
+    # Re-evaluates connected devices; devices allowed "once" may need allowing again
+    systemctl restart usbguard.service
+    echo "USB protection mode: $1"
+    ;;
+-h | --help | help) sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//' ;;
+*) die "Unknown command: ${cmd}. See: $(basename "$0") --help" ;;
+esac

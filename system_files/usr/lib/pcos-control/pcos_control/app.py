@@ -23,6 +23,13 @@ TERMINAL_RUN = "/usr/libexec/pcos/pcos-terminal-run"
 APP_GUARD = "/usr/bin/pcos-app-guard"
 BROWSER_EXTENSIONS = "/usr/bin/pcos-browser-extensions"
 NETWORK = "/usr/bin/pcos-network"
+USB = "/usr/bin/pcos-usb"
+
+USB_MODES = {
+    "ask": ("Ask for every new device", "Recommended. Keyboards, drives, phones: you approve each one."),
+    "allow-input": ("Allow keyboards and mice", "Plain keyboards and mice work right away; everything else asks."),
+    "off": ("Off", "Every USB device works without asking (not recommended)."),
+}
 
 SHARING_LABELS = {
     "printer-discovery": ("Printer discovery", "Find network printers automatically"),
@@ -73,6 +80,7 @@ class Window(Adw.ApplicationWindow):
             ("security", "Security", "security-high-symbolic"),
             ("apps", "Apps", "application-x-executable-symbolic"),
             ("network", "Network", "network-wireless-symbolic"),
+            ("usb", "USB", "drive-removable-media-symbolic"),
             ("disk", "Disk", "drive-harddisk-symbolic"),
             ("graphics", "Graphics", "video-display-symbolic"),
             ("system", "System", "computer-symbolic"),
@@ -110,6 +118,7 @@ class Window(Adw.ApplicationWindow):
                 "admin": status.admin_status(),
                 "apps": status.apps_status(),
                 "network": status.network_status(),
+                "usb": status.usb_status(),
                 "disk": status.disk_status(),
                 "graphics": status.graphics_status(),
                 "system": status.system_status(),
@@ -129,6 +138,7 @@ class Window(Adw.ApplicationWindow):
         self._set_groups("security", self._security(data["admin"]))
         self._set_groups("apps", self._apps(data["apps"]))
         self._set_groups("network", self._network(data["network"]))
+        self._set_groups("usb", self._usb(data["usb"]))
         self._set_groups("disk", self._disk(data["disk"]))
         self._set_groups("graphics", self._graphics(data["graphics"]))
         self._set_groups("system", self._system(data["system"]))
@@ -223,6 +233,43 @@ class Window(Adw.ApplicationWindow):
         return [
             group("Networks", "Every network is Public until you mark it Home. On Public networks nothing can connect to this PC.", net_rows),
             group("Sharing on Home networks", "Always closed on Public networks.", share_rows),
+        ]
+
+    def _usb(self, s: status.UsbStatus) -> list[Adw.PreferencesGroup]:
+        pending_rows: list[Gtk.Widget] = []
+        for d in s.pending:
+            prefix = "⚠ " if d.level == "danger" else ""
+            row = Adw.ActionRow(title=f"{prefix}{d.name}", subtitle=f"{d.kind}. {d.message}")
+            row.set_subtitle_lines(3)
+            once = Gtk.Button(label="Allow anyway" if d.level == "danger" else "Allow once", valign=Gtk.Align.CENTER)
+            once.connect("clicked", lambda *_, i=d.id: self._privileged([USB, "allow", i], "Device allowed until it's unplugged."))
+            if d.level == "danger":
+                once.add_css_class("destructive-action")
+            row.add_suffix(once)
+            if d.level != "danger":
+                always = Gtk.Button(label="Always allow", valign=Gtk.Align.CENTER)
+                always.add_css_class("suggested-action")
+                always.connect("clicked", lambda *_, i=d.id: self._privileged([USB, "allow", i, "--permanent"], "Device allowed, now and next time."))
+                row.add_suffix(always)
+            pending_rows.append(row)
+        if not pending_rows:
+            pending_rows.append(info_row("No blocked devices", "New USB devices appear here and as a notification."))
+
+        mode_rows: list[Gtk.Widget] = []
+        for mode, (title, subtitle) in USB_MODES.items():
+            if mode == s.mode:
+                mode_rows.append(info_row(f"✓ {title}", subtitle))
+            else:
+                mode_rows.append(button_row(title, subtitle, "Use", lambda m=mode: self._privileged([USB, "mode", m], f"USB protection: {USB_MODES[m][0]}.")))
+        mode_rows += [
+            button_row("Connected devices", "Every USB device, in plain words.", "Show",
+                       lambda: run_in_terminal("Connected USB devices", "sudo", "pcos-usb", "devices")),
+            button_row("Always-allowed devices", "Remove a device with: sudo pcos-usb forget <number>.", "Show",
+                       lambda: run_in_terminal("Always-allowed USB devices", "sudo", "pcos-usb", "rules")),
+        ]
+        return [
+            group("Waiting for approval", "Blocked until you allow them. Nothing is asked while the screen is locked.", pending_rows),
+            group("USB protection", "Stops unknown USB devices, including fake keyboards (BadUSB).", mode_rows),
         ]
 
     def _disk(self, s: status.DiskStatus) -> list[Adw.PreferencesGroup]:

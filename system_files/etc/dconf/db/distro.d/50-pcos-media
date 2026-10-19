@@ -1,0 +1,9 @@
+# RudramOS: nothing runs or opens by itself when a drive or phone is connected (docs/DESIGN.md §6.3).
+# Also turns off GNOME's own USBGuard integration, which would allow devices on unlock and bypass
+# RudramOS's approval prompt (it only acts when usbguard-dbus is installed, which RudramOS doesn't do).
+[org/gnome/desktop/media-handling]
+autorun-never=true
+automount-open=false
+
+[org/gnome/desktop/privacy]
+usb-protection=false

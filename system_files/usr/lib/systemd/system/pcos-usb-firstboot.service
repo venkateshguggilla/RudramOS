@@ -1,0 +1,10 @@
+[Unit]
+Description=RudramOS: trust USB devices connected at first start of USBGuard
+Before=usbguard.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/pcos/pcos-usb-firstboot
+
+[Install]
+WantedBy=usbguard.service

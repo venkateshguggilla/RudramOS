@@ -142,6 +142,22 @@ class StatusTests(unittest.TestCase):
         self.assertEqual(s.networks, [])
         self.assertEqual(s.shared, set())
 
+    def test_usb_pending_devices(self):
+        mode = self.write("usb-mode", "allow-input\n")
+        self.write("pending/9", 'block id 1b4f:9206 name "Flash Disk" with-interface { 08:06:50 03:01:01 }\n')
+        self.write("pending/7", 'block id 0781:5581 name "Ultra" with-interface 08:06:50\n')
+        self.write("pending/7.tmp", "partial write, ignored\n")
+        outputs = {"pcos-usb-describe": "Storage\tUltra\tok\tAllow it if it's yours.\n"}
+        s = status.usb_status(mode, os.path.join(self.dir.name, "pending"), "/x/pcos-usb-describe", run=fake_run(outputs))
+        self.assertEqual(s.mode, "allow-input")
+        self.assertEqual([d.id for d in s.pending], ["7", "9"])
+        self.assertEqual((s.pending[0].kind, s.pending[0].name, s.pending[0].level), ("Storage", "Ultra", "ok"))
+
+    def test_usb_defaults_without_files(self):
+        s = status.usb_status(os.path.join(self.dir.name, "no"), os.path.join(self.dir.name, "no-dir"), run=fake_run({}))
+        self.assertEqual(s.mode, "ask")
+        self.assertEqual(s.pending, [])
+
     def test_timeout_is_handled(self):
         def slow(*_a, **_k):
             raise subprocess.TimeoutExpired("rpm-ostree", 30)

@@ -148,12 +148,17 @@ Tracks B and C start on **Windows** (refactor + cross-platform UI) and don't dep
 ---
 
 ## Phase 7: USB device authorization (M)
-- [ ] USBGuard config (DESIGN §6.1), with initial rules generated at first boot; FIDO2 keys pre-allowed
-- [ ] **`pcos-usb-prompt`**: listens on D-Bus, shows Block / Allow once / Always allow → polkit → `applyDevicePolicy`
-- [ ] Device class shown in plain words + **BadUSB heuristics** (storage+HID, unexpected network adapter)
-- [ ] Block all new devices while the screen is locked
-- [ ] udisks2 `nosuid,nodev,noexec`, autorun off, no thumbnails on removable media
-- [ ] Control Center **USB devices** page + modes (Ask / Allow HID / Off)
+- [x] USBGuard: implicit block, apply-policy for present and inserted devices, IPC for root only (Fedora lets `wheel` talk to the daemon directly; removed so approvals always go through admin approval), `rules.d` folder
+- [x] First boot trusts the devices already connected (`pcos-usb-firstboot`, `usbguard generate-policy`); USBGuard `Requires=` it, so if that step fails USBGuard doesn't start and USB keeps working (fails open)
+- [x] `pcos-usb-describe`: devices in plain words (Storage, Keyboard, Security key, Network adapter, ...) with **BadUSB warnings**: storage that can type, or storage that's also a network adapter = danger; network adapters and keyboards = caution; tests `tests/test-usb-describe.sh` (15 cases)
+- [x] `pcos-usb` (`status`, `devices`, `allow <id> [--permanent]`, `block`, `rules`, `forget`, `mode ask|allow-input|off`); **security keys are always allowed permanently** (otherwise a blocked key couldn't approve itself in Strong mode); `allow-input` uses `match-all { 03:01:01 03:01:02 03:00:00 }` so keyboard+storage sticks still ask; polkit action `org.pcos.usb`; tests `tests/test-usb.sh` (19 cases)
+- [x] Root watcher (`pcos-usb-watch`) publishes blocked devices to `/run/pcos/usb-pending/`; plain hubs are allowed automatically (devices behind them are still checked)
+- [x] Desktop prompt (`pcos-usb-prompt`): Keep blocked / Allow once / Always allow, red warning + no "always" for danger devices; **nothing is asked while the screen is locked**
+- [x] GNOME: autorun off, new drives not opened automatically, GNOME's own USBGuard integration off (it allows devices on unlock); `usbguard-dbus` deliberately not installed
+- [x] Programs on USB drives already need approval (Phase 5 fapolicyd rules for `/run/media`)
+- [x] Control Center **USB** page: waiting devices with Allow buttons, protection mode, connected and always-allowed devices
+- [ ] Optional ClamAV scan on mount (later)
+- [ ] Recovery if no USB keyboard works (e.g. a desktop's only keyboard replaced): at the boot menu press `e` and add `systemd.mask=usbguard.service` (GRUB runs before Linux, so its keyboard works); verify on real hardware
 
 **Done when:**
 - [ ] a new flash drive stays invisible until approved; "Always allow" survives a reboot

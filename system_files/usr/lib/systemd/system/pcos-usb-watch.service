@@ -1,0 +1,12 @@
+[Unit]
+Description=RudramOS: publish blocked USB devices for the approval prompt
+After=usbguard.service
+BindsTo=usbguard.service
+
+[Service]
+ExecStart=/usr/libexec/pcos/pcos-usb-watch
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=usbguard.service
