@@ -193,12 +193,14 @@ Tracks B and C start on **Windows** (refactor + cross-platform UI) and don't dep
 Repo: `C:\Venky\work\temp_monitor` (or `apps/temp-monitor`)
 
 ### 9a: Refactor on Windows (S)
-- [ ] Extract `ISensorProvider` from `SensorService`; `WindowsSensorProvider` = the current LibreHardwareMonitor code
-- [ ] Keep `Reading` as the shared model; add a `Fan` reading type (RPM, controllable, mode)
+- [x] Extract `ISensorProvider` from `SensorService`; `WindowsSensorProvider` = the current LibreHardwareMonitor code (projects `TempMonitor.Core` + `TempMonitor.Sensors.Windows`; WPF app builds on them; 15 Core unit tests)
+- [x] Keep `Reading` as the shared model; graph/history logic moved to `CardHistory` in Core
+- [ ] Add a `Fan` reading type (RPM, controllable, mode): moved to 9d with fan control
 
 ### 9b: Avalonia UI on Windows (M)
-- [ ] Port `MainWindow` / `MetricCard` / `TrayIcon` from WPF to **Avalonia**
-- [ ] Feature parity with the current app on Windows (tray temperature, °F, All sensors, diagnostics, single instance)
+- [x] Port `MainWindow` / `MetricCard` / `TrayIcon` from WPF to **Avalonia 11.3.22** (`TempMonitor.Avalonia`; Avalonia 12 needs the .NET 9/10 SDK compiler, so 11.3 for now); platform layer (`Platform.cs`) ready for a Linux provider
+- [x] Feature parity with the current app on Windows: verified side by side on the MacBook (live CPU/GPU/RAM/SSD cards, graphs, banner, status line); single-file release exe 45 MB (WPF 73 MB)
+- [ ] Still to verify by hand: tray icon number rendering, elevated run (CPU/RAM temps via PawnIO), start-with-Windows task switching to the new exe
 
 ### 9c: Linux sensor provider (M)
 - [ ] hwmon/proc/amdgpu/NVML/nvme/drivetemp readers (DESIGN §9.1); load `drivetemp` in the image
