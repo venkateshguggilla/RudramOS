@@ -1,0 +1,5 @@
+# RudramOS: Metadata Cleaner removes location and device details from photos and documents
+# before you share them (docs/DESIGN.md §7.5)
+[Flatpak Preinstall fr.romainvigier.MetadataCleaner]
+Branch=stable
+IsRuntime=false

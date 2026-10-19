@@ -1,0 +1,224 @@
+#!/bin/bash
+# RudramOS privacy settings (docs/DESIGN.md §7). Presets set several options at once;
+# "set" changes one option (the preset then shows as "custom").
+#
+#   status                         current preset and every option
+#   preset balanced|maximum        apply a preset
+#   set <option> <value>           change one option:
+#       dns            quad9 | mullvad | cloudflare | network   DNS provider (network: the Wi-Fi's own, less private)
+#       dot            opportunistic | strict           strict: no DNS at all if encryption fails
+#       trackers       on | off                         block ads/trackers in DNS (Mullvad "base")
+#       wired_mac      permanent | stable               stable: different MAC address per wired network
+#       connectivity   on | off                         captive-portal check (hotel/café login pages)
+#       clear_on_exit  on | off                         Firefox clears cookies and history when closed
+#       journal_days   1-90                             how long system logs are kept
+#   apply                          rewrite the config files from the saved settings
+#
+# The VPN kill switch is separate: pcos-killswitch.
+
+set -euo pipefail
+
+# Testability: PCOS_ROOT prefixes every path; PCOS_NO_RELOAD skips restarting services
+ROOT="${PCOS_ROOT:-}"
+STATE="${ROOT}/etc/pcos/privacy.conf"
+NM_CONF="${ROOT}/etc/NetworkManager/conf.d/60-pcos-privacy.conf"
+RESOLVED_CONF="${ROOT}/etc/systemd/resolved.conf.d/80-pcos-dns.conf"
+JOURNALD_CONF="${ROOT}/etc/systemd/journald.conf.d/60-pcos-privacy.conf"
+FIREFOX_DIR="${ROOT}/etc/pcos/firefox-policies.d"
+
+declare -A BALANCED=([preset]=balanced [dns]=quad9 [dot]=opportunistic [trackers]=off [wired_mac]=permanent
+    [connectivity]=on [clear_on_exit]=off [journal_days]=14)
+declare -A MAXIMUM=([preset]=maximum [dns]=quad9 [dot]=strict [trackers]=on [wired_mac]=stable
+    [connectivity]=off [clear_on_exit]=on [journal_days]=3)
+OPTIONS=(dns dot trackers wired_mac connectivity clear_on_exit journal_days)
+
+declare -A S=()
+
+die() {
+    echo "$*" >&2
+    exit 1
+}
+
+require_root() {
+    [[ "${EUID}" -eq 0 || "${PCOS_TEST_ROOT:-}" == 1 ]] || die "Run with sudo: sudo $(basename "$0") $*"
+}
+
+load() {
+    local k
+    for k in "${!BALANCED[@]}"; do S[${k}]="${BALANCED[${k}]}"; done
+    [[ -r "${STATE}" ]] || return 0
+    while IFS='=' read -r k v; do
+        [[ -n "${k}" && "${k}" != \#* && -n "${BALANCED[${k}]+x}" ]] && S[${k}]="${v}"
+    done <"${STATE}"
+}
+
+save() {
+    mkdir -p "$(dirname "${STATE}")"
+    {
+        echo "# RudramOS privacy settings, managed by pcos-privacy"
+        echo "preset=${S[preset]}"
+        for k in "${OPTIONS[@]}"; do echo "${k}=${S[${k}]}"; done
+    } >"${STATE}.tmp"
+    mv -f "${STATE}.tmp" "${STATE}"
+    chmod 0644 "${STATE}"
+}
+
+valid() {
+    local k="$1" v="$2"
+    case "${k}" in
+    dns) [[ "${v}" =~ ^(quad9|mullvad|cloudflare|network)$ ]] ;;
+    dot) [[ "${v}" =~ ^(opportunistic|strict)$ ]] ;;
+    trackers | connectivity | clear_on_exit) [[ "${v}" =~ ^(on|off)$ ]] ;;
+    wired_mac) [[ "${v}" =~ ^(permanent|stable)$ ]] ;;
+    journal_days) [[ "${v}" =~ ^[0-9]+$ ]] && ((v >= 1 && v <= 90)) ;;
+    *) return 1 ;;
+    esac
+}
+
+dns_servers() {
+    # "network" wins, so switching to it always works (e.g. for a hotel login page)
+    if [[ "${S[dns]}" == network ]]; then
+        echo network
+        return
+    fi
+    if [[ "${S[trackers]}" == on ]]; then
+        echo "194.242.2.4#base.dns.mullvad.net 2a07:e340::4#base.dns.mullvad.net"
+        return
+    fi
+    case "${S[dns]}" in
+    quad9) echo "9.9.9.9#dns.quad9.net 149.112.112.112#dns.quad9.net 2620:fe::fe#dns.quad9.net 2620:fe::9#dns.quad9.net" ;;
+    mullvad) echo "194.242.2.2#dns.mullvad.net 2a07:e340::2#dns.mullvad.net" ;;
+    cloudflare) echo "1.1.1.1#cloudflare-dns.com 1.0.0.1#cloudflare-dns.com 2606:4700:4700::1111#cloudflare-dns.com 2606:4700:4700::1001#cloudflare-dns.com" ;;
+    esac
+}
+
+write_file() {
+    local path="$1"
+    mkdir -p "$(dirname "${path}")"
+    cat >"${path}.tmp"
+    chmod 0644 "${path}.tmp"
+    mv -f "${path}.tmp" "${path}"
+}
+
+apply() {
+    write_file "${NM_CONF}" <<EOF
+# RudramOS privacy (pcos-privacy): written from /etc/pcos/privacy.conf, don't edit
+[device-pcos-privacy]
+# Random MAC address while scanning for Wi-Fi networks
+wifi.scan-rand-mac-address=yes
+
+[connection-pcos-privacy]
+# A different, stable MAC address for each Wi-Fi network (cafés can't track this laptop)
+wifi.cloned-mac-address=stable
+ethernet.cloned-mac-address=${S[wired_mac]}
+# Temporary IPv6 addresses, and don't tell DHCP servers this PC's name
+ipv6.ip6-privacy=2
+ipv4.dhcp-send-hostname=false
+ipv6.dhcp-send-hostname=false
+$(
+        if [[ "$(dns_servers)" != network ]]; then
+            echo
+            echo "[main]"
+            echo "# Don't hand the network's (plain-text) DNS servers to systemd-resolved: only the"
+            echo "# encrypted servers in resolved.conf.d/80-pcos-dns.conf are ever asked"
+            echo "dns=none"
+            echo "systemd-resolved=false"
+        fi
+)
+
+[connectivity]
+enabled=$([[ "${S[connectivity]}" == on ]] && echo true || echo false)
+EOF
+
+    if [[ "$(dns_servers)" == network ]]; then
+        # "network": the Wi-Fi's own DNS (less private; for login pages that need it). Still
+        # encrypted when that server supports it.
+        write_file "${RESOLVED_CONF}" <<EOF
+# RudramOS privacy (pcos-privacy): using the network's DNS. Written from /etc/pcos/privacy.conf, don't edit
+[Resolve]
+DNSOverTLS=$([[ "${S[dot]}" == strict ]] && echo yes || echo opportunistic)
+EOF
+    else
+        write_file "${RESOLVED_CONF}" <<EOF
+# RudramOS privacy (pcos-privacy): encrypted DNS. Written from /etc/pcos/privacy.conf, don't edit
+[Resolve]
+DNS=$(dns_servers)
+DNSOverTLS=$([[ "${S[dot]}" == strict ]] && echo yes || echo opportunistic)
+Domains=~.
+EOF
+    fi
+
+    write_file "${JOURNALD_CONF}" <<EOF
+# RudramOS privacy (pcos-privacy): how long system logs are kept
+[Journal]
+MaxRetentionSec=${S[journal_days]}day
+EOF
+
+    mkdir -p "${FIREFOX_DIR}"
+    if [[ "${S[clear_on_exit]}" == on ]]; then
+        write_file "${FIREFOX_DIR}/50-clear-on-exit.json" <<'EOF'
+{
+  "policies": {
+    "SanitizeOnShutdown": {
+      "Cache": true,
+      "Cookies": true,
+      "History": true,
+      "Sessions": true,
+      "FormData": true,
+      "Downloads": true,
+      "SiteSettings": false,
+      "Locked": false
+    }
+  }
+}
+EOF
+    else
+        rm -f "${FIREFOX_DIR}/50-clear-on-exit.json"
+    fi
+
+    if [[ -z "${PCOS_NO_RELOAD:-}" ]]; then
+        nmcli general reload conf 2>/dev/null || systemctl reload NetworkManager || true
+        systemctl restart systemd-resolved.service || true
+        systemctl restart systemd-journald.service || true
+        /usr/bin/pcos-browser-extensions apply || true
+        # Reconnect so new MAC/DNS settings take effect on active connections
+        nmcli networking off 2>/dev/null && nmcli networking on 2>/dev/null || true
+    fi
+}
+
+load
+cmd="${1:-status}"
+shift || true
+case "${cmd}" in
+status)
+    echo "Privacy preset: ${S[preset]}"
+    for k in "${OPTIONS[@]}"; do printf '  %-14s %s\n' "${k}" "${S[${k}]}"; done
+    ;;
+preset)
+    require_root "${cmd}"
+    case "${1:-}" in
+    balanced) for k in "${!BALANCED[@]}"; do S[${k}]="${BALANCED[${k}]}"; done ;;
+    maximum) for k in "${!MAXIMUM[@]}"; do S[${k}]="${MAXIMUM[${k}]}"; done ;;
+    *) die "usage: $(basename "$0") preset balanced|maximum" ;;
+    esac
+    save
+    apply
+    echo "Privacy preset: ${S[preset]}"
+    ;;
+set)
+    require_root "${cmd}"
+    [[ $# -eq 2 ]] || die "usage: $(basename "$0") set <option> <value>  (options: ${OPTIONS[*]})"
+    valid "$1" "$2" || die "Invalid value '$2' for '$1'. See: $(basename "$0") --help"
+    S[$1]="$2"
+    S[preset]=custom
+    save
+    apply
+    echo "$1 = $2 (preset: custom)"
+    ;;
+apply)
+    require_root "${cmd}"
+    apply
+    ;;
+-h | --help | help) sed -n '2,17p' "$0" | sed 's/^# \{0,1\}//' ;;
+*) die "Unknown command: ${cmd}. See: $(basename "$0") --help" ;;
+esac

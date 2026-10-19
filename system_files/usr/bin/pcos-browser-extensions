@@ -16,6 +16,8 @@ APPROVED="${APPROVED:-/etc/pcos/browser-extensions.json}"
 # Flatpak Firefox reads /app/etc/firefox from this unmanaged extension; RPM Firefox reads /etc/firefox
 FLATPAK_POLICY="${FLATPAK_POLICY:-/var/lib/flatpak/extension/org.mozilla.firefox.systemconfig/$(uname -m)/stable/policies/policies.json}"
 RPM_POLICY="${RPM_POLICY:-/etc/firefox/policies/policies.json}"
+# Extra policy files merged on top, e.g. clear-on-exit from pcos-privacy
+EXTRA_DIR="${EXTRA_DIR:-/etc/pcos/firefox-policies.d}"
 AMO_API="https://addons.mozilla.org/api/v5/addons/addon"
 
 die() {
@@ -50,6 +52,11 @@ apply() {
             if .value.install_url
             then { installation_mode: "normal_installed", install_url: .value.install_url }
             else { installation_mode: "allowed" } end)))' "${BASE_POLICY}")
+    local extra
+    for extra in "${EXTRA_DIR}"/*.json; do
+        [[ -r "${extra}" ]] || continue
+        merged=$(jq -s '.[0] * .[1]' - "${extra}" <<<"${merged}") || die "Invalid policy file: ${extra}"
+    done
     for out in "${FLATPAK_POLICY}" "${RPM_POLICY}"; do
         mkdir -p "$(dirname "${out}")"
         printf '%s\n' "${merged}" >"${out}.tmp"

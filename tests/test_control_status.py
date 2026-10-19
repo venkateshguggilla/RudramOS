@@ -158,6 +158,22 @@ class StatusTests(unittest.TestCase):
         self.assertEqual(s.mode, "ask")
         self.assertEqual(s.pending, [])
 
+    def test_privacy_from_conf(self):
+        conf = self.write("privacy.conf", "# managed\npreset=custom\ndns=mullvad\ntrackers=on\njournal_days=3\nbogus=1\n")
+        rules = self.write("killswitch.nft", "table inet pcos_killswitch {}\n")
+        s = status.privacy_status(conf, rules)
+        self.assertEqual(s.settings["preset"], "custom")
+        self.assertEqual(s.settings["dns"], "mullvad")
+        self.assertEqual(s.settings["trackers"], "on")
+        self.assertEqual(s.settings["dot"], "opportunistic")  # default kept
+        self.assertNotIn("bogus", s.settings)
+        self.assertTrue(s.killswitch_on)
+
+    def test_privacy_defaults(self):
+        s = status.privacy_status(os.path.join(self.dir.name, "no"), os.path.join(self.dir.name, "no.nft"))
+        self.assertEqual(s.settings, status.PRIVACY_DEFAULTS)
+        self.assertFalse(s.killswitch_on)
+
     def test_timeout_is_handled(self):
         def slow(*_a, **_k):
             raise subprocess.TimeoutExpired("rpm-ostree", 30)

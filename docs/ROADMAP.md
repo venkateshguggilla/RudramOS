@@ -169,14 +169,18 @@ Tracks B and C start on **Windows** (refactor + cross-platform UI) and don't dep
 ---
 
 ## Phase 8: Privacy presets (M)
-- [ ] Turn off countme, ABRT reporting, the connectivity check; chrony NTS
-- [ ] NetworkManager MAC randomization, no hostname over DHCP, IPv6 privacy
-- [ ] systemd-resolved DNS-over-TLS (Quad9 default), LLMNR/mDNS off
-- [ ] Optional tracker blocklist (local resolver layer, selectable list)
-- [ ] Firefox privacy policies (strict ETP, telemetry off, HTTPS-only, optional clear-on-exit)
-- [ ] WireGuard VPN kill switch; Mullvad Browser / Tor Browser optional installs
-- [ ] Metadata Cleaner preinstalled; journald retention
-- [ ] Control Center **Privacy** page: Balanced / Maximum / Custom + per-app Flatpak permissions (including network)
+- [x] No phone-home in any preset: `rpm-ostree-countme` masked; GNOME problem reports, usage stats and location off (dconf defaults); `DO_NOT_TRACK`, Homebrew/.NET/PowerShell/Next.js telemetry opt-outs for the session and terminals
+- [x] Time from **NTS** servers (Cloudflare, Netnod, PTB) instead of plain NTP pools (chrony)
+- [x] `pcos-privacy` (`status`, `preset balanced|maximum`, `set <option> <value>`, `apply`), state `/etc/pcos/privacy.conf`; tests `tests/test-privacy.sh` (36 cases)
+  - MAC: random while scanning, stable per Wi-Fi network; wired per-network (Maximum); IPv6 privacy addresses; hostname not sent over DHCP
+  - DNS-over-TLS through systemd-resolved (Quad9 / Mullvad / Cloudflare); NetworkManager no longer passes the network's plain-text DNS servers (`dns=none`), so lookups don't leak. Balanced = opportunistic, Maximum = strict. Option `network` uses the Wi-Fi's own DNS for login pages that need it
+  - Tracker blocking: Mullvad's filtering DoT resolver `base.dns.mullvad.net` (194.242.2.4 / 2a07:e340::4) instead of a local blocklist service (verify its filter list)
+  - Captive-portal check on in Balanced, off in Maximum; journald retention 14 / 3 days; Firefox clear-on-exit in Maximum (merged into the Firefox policy from `/etc/pcos/firefox-policies.d/`)
+- [x] **VPN kill switch** `pcos-killswitch` (`on`, `off`, `status`, `load`): nftables table allowing only VPN interfaces, the WireGuard servers (resolved from NetworkManager connections, bracketed IPv6 handled), the local network, DHCP and IPv6 neighbour discovery; rules checked with `nft -c` before loading; `pcos-killswitch.service` reloads it at boot before networking; tests `tests/test-killswitch.sh` (18 cases)
+- [x] Metadata Cleaner preinstalled (Flatpak preinstall)
+- [x] Control Center **Privacy** page: presets, DNS provider, tracker blocking, strict DNS, wired MAC, login-page detection, Firefox forget-on-close, log retention, recent files (per user), VPN kill switch; polkit actions `org.pcos.privacy`, `org.pcos.killswitch`
+- [ ] Mullvad Browser / Tor Browser: install from the App Store when wanted (not preinstalled)
+- [ ] Kill switch covers WireGuard VPNs set up in NetworkManager; OpenVPN and VPN apps with their own tunnels aren't detected yet
 
 **Done when:**
 - [ ] a packet capture of a freshly booted idle PC shows **no unexpected outbound connections** (only DoT to the chosen resolver, NTS and update checks)

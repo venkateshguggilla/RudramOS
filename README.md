@@ -127,6 +127,24 @@ sudo pcos-admin-mode strong
 - Modes in Control Center → **USB**: *Ask* (default), *Allow keyboards and mice*, *Off*. Or `sudo pcos-usb mode allow-input`.
 - **No working keyboard** (for example after replacing a desktop's only keyboard): at the boot menu press **e**, add `systemd.mask=usbguard.service` to the line starting with `linux`, then press **Ctrl+X**. This boots once with USB protection off, so you can approve the new keyboard.
 
+## Privacy
+No telemetry, usage reports or "count me" pings in any setting. Time is synced over encrypted, authenticated NTS. Choose a preset in Control Center → **Privacy**, or:
+```bash
+sudo pcos-privacy preset maximum
+```
+| | Balanced (default) | Maximum |
+|---|---|---|
+| Wi-Fi MAC address | different per network | different per network |
+| Wired MAC address | real | different per network |
+| DNS | encrypted (Quad9), falls back if blocked | encrypted only, plus ad/tracker blocking (Mullvad) |
+| Wi-Fi login page detection | on | off |
+| Firefox | strict tracking protection, uBlock Origin | + forgets cookies and history on close |
+| System logs kept | 14 days | 3 days |
+
+**A hotel or café login page won't load?** Temporarily set DNS to *This network's DNS* in Control Center → Privacy (or `sudo pcos-privacy set dns network`), sign in, then switch back.
+
+**VPN kill switch:** add your WireGuard VPN in Settings → Network → VPN, then turn on *VPN kill switch* in Control Center → Privacy (or `sudo pcos-killswitch on`). Internet then only works through the VPN. The local network (router, printers) still works.
+
 ## Disk encryption
 Tick **Encrypt my data** in the installer's **Installation Destination** and choose a passphrase. After the first login, set up how the drive unlocks:
 ```bash

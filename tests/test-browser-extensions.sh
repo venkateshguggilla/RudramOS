@@ -26,6 +26,7 @@ export BASE_POLICY="${ROOT}/system_files/usr/share/pcos/firefox/policies.base.js
 export APPROVED="${work}/etc/browser-extensions.json"
 export FLATPAK_POLICY="${work}/flatpak/policies/policies.json"
 export RPM_POLICY="${work}/etc-firefox/policies/policies.json"
+export EXTRA_DIR="${work}/firefox-policies.d"
 
 expect() {
     local desc="$1" want="$2"
@@ -64,6 +65,14 @@ expect "revoke" 0 bash "${TOOL}" revoke "addon@darkreader.org"
 assert "Dark Reader gone from policy" policy '.policies.ExtensionSettings | has("addon@darkreader.org") | not'
 expect "revoke unknown fails" 1 bash "${TOOL}" revoke "addon@darkreader.org"
 expect "not root refused" 1 env PCOS_TEST_ROOT=0 bash "${TOOL}" approve darkreader
+mkdir -p "${EXTRA_DIR}"
+printf '{"policies":{"SanitizeOnShutdown":{"Cookies":true}}}\n' >"${EXTRA_DIR}/50-clear-on-exit.json"
+expect "apply with an extra policy file" 0 bash "${TOOL}" apply
+assert "extra policy merged in" policy '.policies.SanitizeOnShutdown.Cookies == true'
+assert "extensions still blocked after merge" policy '.policies.ExtensionSettings["*"].installation_mode == "blocked"'
+assert "approved Bitwarden kept after merge" policy '.policies.ExtensionSettings | has("{446900e4-71c2-419f-a6a7-df9c091e268b}")'
+printf 'not json' >"${EXTRA_DIR}/60-broken.json"
+expect "broken extra policy file fails cleanly" 1 bash "${TOOL}" apply
 
 echo
 if (( failures > 0 )); then echo "${failures} test(s) failed"; exit 1; fi

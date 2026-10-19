@@ -50,6 +50,18 @@ class AppsStatus:
     extensions: dict[str, str] = field(default_factory=dict)  # approved browser extension id -> name
 
 
+PRIVACY_DEFAULTS = {
+    "preset": "balanced", "dns": "quad9", "dot": "opportunistic", "trackers": "off",
+    "wired_mac": "permanent", "connectivity": "on", "clear_on_exit": "off", "journal_days": "14",
+}
+
+
+@dataclass
+class PrivacyStatus:
+    settings: dict[str, str]
+    killswitch_on: bool
+
+
 @dataclass
 class UsbDevice:
     id: str
@@ -177,6 +189,15 @@ def network_status(trusted_file: str = "/etc/pcos/trusted-networks", run=subproc
     except (OSError, subprocess.SubprocessError):
         pass
     return NetworkStatus(networks=networks, shared=shared)
+
+
+def privacy_status(conf: str = "/etc/pcos/privacy.conf", killswitch_rules: str = "/etc/pcos/killswitch.nft") -> PrivacyStatus:
+    settings = dict(PRIVACY_DEFAULTS)
+    for line in _read(conf).splitlines():
+        key, sep, value = line.partition("=")
+        if sep and key in settings and not key.startswith("#"):
+            settings[key] = value.strip()
+    return PrivacyStatus(settings=settings, killswitch_on=os.path.exists(killswitch_rules))
 
 
 def usb_status(

@@ -24,6 +24,16 @@ APP_GUARD = "/usr/bin/pcos-app-guard"
 BROWSER_EXTENSIONS = "/usr/bin/pcos-browser-extensions"
 NETWORK = "/usr/bin/pcos-network"
 USB = "/usr/bin/pcos-usb"
+PRIVACY = "/usr/bin/pcos-privacy"
+KILLSWITCH = "/usr/bin/pcos-killswitch"
+
+DNS_CHOICES = [
+    ("quad9", "Quad9 (blocks malware sites)"),
+    ("mullvad", "Mullvad (no filtering)"),
+    ("cloudflare", "Cloudflare (fast)"),
+    ("network", "This network's DNS (less private, for login pages)"),
+]
+JOURNAL_CHOICES = ["3", "7", "14", "30"]
 
 USB_MODES = {
     "ask": ("Ask for every new device", "Recommended. Keyboards, drives, phones: you approve each one."),
@@ -81,6 +91,7 @@ class Window(Adw.ApplicationWindow):
             ("apps", "Apps", "application-x-executable-symbolic"),
             ("network", "Network", "network-wireless-symbolic"),
             ("usb", "USB", "drive-removable-media-symbolic"),
+            ("privacy", "Privacy", "preferences-system-privacy-symbolic"),
             ("disk", "Disk", "drive-harddisk-symbolic"),
             ("graphics", "Graphics", "video-display-symbolic"),
             ("system", "System", "computer-symbolic"),
@@ -119,6 +130,7 @@ class Window(Adw.ApplicationWindow):
                 "apps": status.apps_status(),
                 "network": status.network_status(),
                 "usb": status.usb_status(),
+                "privacy": status.privacy_status(),
                 "disk": status.disk_status(),
                 "graphics": status.graphics_status(),
                 "system": status.system_status(),
@@ -139,6 +151,7 @@ class Window(Adw.ApplicationWindow):
         self._set_groups("apps", self._apps(data["apps"]))
         self._set_groups("network", self._network(data["network"]))
         self._set_groups("usb", self._usb(data["usb"]))
+        self._set_groups("privacy", self._privacy(data["privacy"]))
         self._set_groups("disk", self._disk(data["disk"]))
         self._set_groups("graphics", self._graphics(data["graphics"]))
         self._set_groups("system", self._system(data["system"]))
@@ -270,6 +283,70 @@ class Window(Adw.ApplicationWindow):
         return [
             group("Waiting for approval", "Blocked until you allow them. Nothing is asked while the screen is locked.", pending_rows),
             group("USB protection", "Stops unknown USB devices, including fake keyboards (BadUSB).", mode_rows),
+        ]
+
+    def _privacy(self, p: status.PrivacyStatus) -> list[Adw.PreferencesGroup]:
+        s = p.settings
+
+        def set_option(key: str, value: str) -> None:
+            self._privileged([PRIVACY, "set", key, value], "Privacy setting saved.")
+
+        def switch(title: str, subtitle: str, key: str, on_value: str, off_value: str) -> Adw.SwitchRow:
+            row = Adw.SwitchRow(title=title, subtitle=subtitle, active=s.get(key) == on_value)
+            row.connect("notify::active", lambda r, _p: set_option(key, on_value if r.get_active() else off_value))
+            return row
+
+        presets: list[Gtk.Widget] = []
+        for name, title, subtitle in (
+            ("balanced", "Balanced", "Private without breaking anything. Recommended."),
+            ("maximum", "Maximum", "Strict encrypted DNS, ad and tracker blocking, Firefox forgets everything on close."),
+        ):
+            if s["preset"] == name:
+                presets.append(info_row(f"✓ {title}", subtitle))
+            else:
+                presets.append(button_row(title, subtitle, "Use", lambda n=name: self._privileged([PRIVACY, "preset", n], f"Privacy preset: {n}.")))
+        if s["preset"] == "custom":
+            presets.insert(0, info_row("✓ Custom", "You changed individual settings below."))
+
+        dns = Adw.ComboRow(title="DNS provider", subtitle="Encrypted (DNS-over-TLS). Your network can't see the sites you look up.",
+                           model=Gtk.StringList.new([label for _, label in DNS_CHOICES]))
+        keys = [k for k, _ in DNS_CHOICES]
+        dns.set_selected(keys.index(s["dns"]) if s["dns"] in keys else 0)
+        dns.connect("notify::selected", lambda r, _p: set_option("dns", keys[r.get_selected()]))
+
+        journal = Adw.ComboRow(title="Keep system logs for", model=Gtk.StringList.new([f"{d} days" for d in JOURNAL_CHOICES]))
+        journal.set_selected(JOURNAL_CHOICES.index(s["journal_days"]) if s["journal_days"] in JOURNAL_CHOICES else 2)
+        journal.connect("notify::selected", lambda r, _p: set_option("journal_days", JOURNAL_CHOICES[r.get_selected()]))
+
+        options = [
+            dns,
+            switch("Block ads and trackers", "Uses Mullvad's filtering DNS for every app.", "trackers", "on", "off"),
+            switch("Strict encrypted DNS", "No DNS at all if encryption isn't possible (some networks block it).", "dot", "strict", "opportunistic"),
+            switch("Private address on wired networks", "A different hardware (MAC) address per wired network, like Wi-Fi.", "wired_mac", "stable", "permanent"),
+            switch("Detect Wi-Fi login pages", "Checks fedoraproject.org to show hotel/café sign-in pages.", "connectivity", "on", "off"),
+            switch("Firefox forgets on close", "Cookies, history and open tabs are cleared when Firefox closes.", "clear_on_exit", "on", "off"),
+            journal,
+        ]
+
+        recent = Adw.SwitchRow(title="Remember recently used files", subtitle="Just for you; no admin approval needed.")
+        try:
+            gsettings = Gio.Settings(schema_id="org.gnome.desktop.privacy")
+            gsettings.bind("remember-recent-files", recent, "active", Gio.SettingsBindFlags.DEFAULT)
+        except (TypeError, GLib.Error):
+            recent.set_sensitive(False)
+
+        ks = Adw.SwitchRow(title="VPN kill switch",
+                           subtitle="Internet only through your WireGuard VPN. If the VPN drops, traffic stops instead of leaking.",
+                           active=p.killswitch_on)
+        ks.connect("notify::active", lambda r, _p: self._privileged(
+            [KILLSWITCH, "on" if r.get_active() else "off"],
+            "VPN kill switch on." if r.get_active() else "VPN kill switch off."))
+
+        return [
+            group("Privacy preset", "No telemetry and no usage reports in any preset.", presets),
+            group("Settings", "", options),
+            group("This account", "", [recent]),
+            group("VPN", "Add your WireGuard VPN in Settings → Network → VPN first.", [ks]),
         ]
 
     def _disk(self, s: status.DiskStatus) -> list[Adw.PreferencesGroup]:

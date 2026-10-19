@@ -12,7 +12,7 @@ SIGNING_PUBKEY="/etc/pki/containers/pcos.pub"
 ### System files
 # Copy the contents of system_files/ in the git repo to /
 cp -avf "/ctx/system_files"/. /
-chmod 0755 /usr/bin/pcos-usb /usr/libexec/pcos/pcos-usb-describe /usr/libexec/pcos/pcos-usb-watch /usr/libexec/pcos/pcos-usb-prompt /usr/libexec/pcos/pcos-usb-firstboot /usr/bin/pcos-network /usr/libexec/pcos/pcos-network-prompt /usr/lib/NetworkManager/dispatcher.d/50-pcos-network-trust /usr/bin/pcos-app-guard /usr/bin/pcos-browser-extensions /usr/libexec/pcos/pcos-app-guard-notify /usr/bin/pcos-control /usr/libexec/pcos/pcos-terminal-run /usr/bin/pcos-admin-mode /usr/bin/pcos-disk-security /usr/bin/pcos-driver-assistant /usr/libexec/pcos/pcos-gpu-detect /usr/libexec/pcos/pcos-gpu-switch
+chmod 0755 /usr/bin/pcos-privacy /usr/bin/pcos-killswitch /usr/bin/pcos-usb /usr/libexec/pcos/pcos-usb-describe /usr/libexec/pcos/pcos-usb-watch /usr/libexec/pcos/pcos-usb-prompt /usr/libexec/pcos/pcos-usb-firstboot /usr/bin/pcos-network /usr/libexec/pcos/pcos-network-prompt /usr/lib/NetworkManager/dispatcher.d/50-pcos-network-trust /usr/bin/pcos-app-guard /usr/bin/pcos-browser-extensions /usr/libexec/pcos/pcos-app-guard-notify /usr/bin/pcos-control /usr/libexec/pcos/pcos-terminal-run /usr/bin/pcos-admin-mode /usr/bin/pcos-disk-security /usr/bin/pcos-driver-assistant /usr/libexec/pcos/pcos-gpu-detect /usr/libexec/pcos/pcos-gpu-switch
 
 ### Branding (Phase 1 basics; full branding in Phase 12)
 sed -i 's/^PRETTY_NAME=.*/PRETTY_NAME="RudramOS"/' /usr/lib/os-release
@@ -133,6 +133,28 @@ chmod 0600 /etc/usbguard/rules.conf
 echo ask >/etc/pcos/usb-mode
 systemctl enable usbguard.service pcos-usb-firstboot.service pcos-usb-watch.service
 # GNOME defaults: no autorun, don't open new drives automatically, GNOME's own USB protection off
+dconf update
+
+### Privacy (docs/DESIGN.md §7)
+# No weekly "count me" ping to Fedora
+systemctl mask rpm-ostree-countme.timer rpm-ostree-countme.service
+# Time from NTS servers (authenticated + encrypted) instead of plain NTP pools
+CHRONY_CONF=/etc/chrony.conf
+if [[ -f "${CHRONY_CONF}" ]]; then
+    sed -i -E 's/^(pool|server|sourcedir)[[:space:]]/#&/' "${CHRONY_CONF}"
+    cat >>"${CHRONY_CONF}" <<'EOF'
+
+# RudramOS: authenticated, encrypted time (NTS) instead of plain NTP pools
+server time.cloudflare.com iburst nts
+server nts.netnod.se iburst nts
+server ptbtime1.ptb.de iburst nts
+ntsdumpdir /var/lib/chrony
+EOF
+fi
+# Balanced preset by default: MAC randomization, encrypted DNS (Quad9), short log retention
+mkdir -p /etc/pcos/firefox-policies.d
+PCOS_NO_RELOAD=1 /usr/bin/pcos-privacy preset balanced
+test -s /etc/systemd/resolved.conf.d/80-pcos-dns.conf
 dconf update
 
 ### Check the Control Center loads (imports GTK/Adw, no display needed)

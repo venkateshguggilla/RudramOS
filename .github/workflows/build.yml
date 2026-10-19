@@ -76,6 +76,8 @@ jobs:
           bash tests/test-network.sh
           bash tests/test-usb-describe.sh
           bash tests/test-usb.sh
+          bash tests/test-privacy.sh
+          bash tests/test-killswitch.sh
           python3 -m unittest discover -s tests -p "test_*.py" -v
 
       - name: Image Name

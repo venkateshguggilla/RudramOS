@@ -1,0 +1,10 @@
+# RudramOS privacy defaults (docs/DESIGN.md §7). Each user can still change these in Settings.
+[org/gnome/desktop/privacy]
+report-technical-problems=false
+send-software-usage-stats=false
+remove-old-temp-files=true
+remove-old-trash-files=true
+old-files-age=uint32 30
+
+[org/gnome/system/location]
+enabled=false

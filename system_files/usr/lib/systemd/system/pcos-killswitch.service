@@ -1,0 +1,13 @@
+[Unit]
+Description=RudramOS VPN kill switch (load saved rules before networking starts)
+Before=network-pre.target
+Wants=network-pre.target
+ConditionPathExists=/etc/pcos/killswitch.nft
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/pcos-killswitch load
+
+[Install]
+WantedBy=multi-user.target
