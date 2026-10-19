@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC
+ "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+<policyconfig>
+  <vendor>RudramOS</vendor>
+
+  <!-- Marking a network as Home and turning sharing on/off: always needs admin approval
+       (password, or password + security key in Strong mode). -->
+  <action id="org.pcos.network">
+    <description>Change network trust and sharing</description>
+    <message>Authentication is required to change which networks can reach this PC</message>
+    <icon_name>network-wireless</icon_name>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/bin/pcos-network</annotate>
+  </action>
+</policyconfig>

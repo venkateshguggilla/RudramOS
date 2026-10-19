@@ -129,11 +129,16 @@ Tracks B and C start on **Windows** (refactor + cross-platform UI) and don't dep
 ---
 
 ## Phase 6: Network protection (M)
-- [ ] firewalld zones `pcos-public` (default, drop + stealth) and `pcos-home`
-- [ ] Remove/disable `sshd`, `cups-browsed`, Avahi announcements, LLMNR/NetBIOS, UPnP
-- [ ] NetworkManager dispatcher + Control Center **network trust prompt**; Home requires admin approval
-- [ ] Control Center **Sharing** page: file sharing (selected folders, password, auto-off when leaving Home), remote desktop, "Stop all sharing"
-- [ ] `bolt` Thunderbolt authorization + IOMMU args
+- [x] firewalld zones `pcos-public` (default) and `pcos-home` in `/usr/lib/firewalld/zones`: target DROP (stealth: no ping replies, no "closed" answers), `icmp-block-inversion` allowing only IPv6 neighbour discovery, router adverts, path-MTU and error ICMP; replaces Fedora Workstation's zone that opened ports 1025–65535; build validates with `firewall-offline-cmd --check-config`
+- [x] `pcos-network` (`status`, `trust <network> home|public`, `share <what> on|off`, `stop-sharing`, `apply`); trusted list `/etc/pcos/trusted-networks` (root-owned); polkit action `org.pcos.network`; tests `tests/test-network.sh` (27 cases)
+- [x] NetworkManager hook `50-pcos-network-trust` (root) puts each Wi-Fi/Ethernet connection in the zone the admin chose, overriding a zone set by editing the connection profile
+- [x] "Connected to X: Home or Public?" notification (`pcos-network-prompt`); Home needs admin approval; unanswered = Public
+- [x] Sharing (printer discovery, phone link, remote desktop, file sharing, Steam Remote Play, SSH) can only be opened in `pcos-home`, so it's closed automatically on any other network; SSH also starts/stops `sshd`
+- [x] Nothing announcing: `sshd` disabled, `cups-browsed` masked, Avahi `disable-publishing=yes`, LLMNR/mDNS off in systemd-resolved
+- [x] Network sysctls: no ICMP redirects or source routing, broadcast-ping and bogus-error ignore, SYN cookies, RFC 1337 (`61-pcos-network.conf`)
+- [x] Control Center **Network** page: active networks with Make Home / Make Public, sharing switches, Stop all sharing
+- [ ] `bolt` Thunderbolt authorization is Fedora's default (GNOME prompts); IOMMU kernel flags deferred (hardware compatibility)
+- [ ] Known limit: a network is recognised by its NetworkManager profile, so a fake Wi-Fi with the same name and password as a Home network would be treated as Home (same as macOS/Windows)
 
 **Done when:**
 - [ ] an `nmap` scan from another LAN machine shows **no open ports and no ping reply** on a Public network

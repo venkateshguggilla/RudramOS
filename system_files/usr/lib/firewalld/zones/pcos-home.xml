@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- RudramOS Home network (a network the admin marked as trusted): same stealth defaults as
+     Public. Sharing services (file sharing, remote desktop, phone link, printer discovery,
+     Steam streaming, SSH) are added here only when turned on with pcos-network share,
+     so they're closed automatically on any other network. -->
+<zone target="DROP">
+  <short>RudramOS Home</short>
+  <description>Trusted network: incoming connections blocked except sharing you turned on.</description>
+  <service name="dhcpv6-client"/>
+  <icmp-block-inversion/>
+  <icmp-block name="neighbour-solicitation"/>
+  <icmp-block name="neighbour-advertisement"/>
+  <icmp-block name="router-advertisement"/>
+  <icmp-block name="packet-too-big"/>
+  <icmp-block name="destination-unreachable"/>
+  <icmp-block name="time-exceeded"/>
+</zone>

@@ -22,6 +22,16 @@ APP_ID = "org.pcos.Control"
 TERMINAL_RUN = "/usr/libexec/pcos/pcos-terminal-run"
 APP_GUARD = "/usr/bin/pcos-app-guard"
 BROWSER_EXTENSIONS = "/usr/bin/pcos-browser-extensions"
+NETWORK = "/usr/bin/pcos-network"
+
+SHARING_LABELS = {
+    "printer-discovery": ("Printer discovery", "Find network printers automatically"),
+    "phone": ("Phone link", "Connect your Android phone (GSConnect / KDE Connect)"),
+    "remote-desktop": ("Remote desktop", "Let another computer control this one (RDP)"),
+    "file-sharing": ("File sharing", "Windows-compatible shared folders (Samba)"),
+    "steam-streaming": ("Steam Remote Play", "Stream games to other devices"),
+    "ssh": ("Remote login (SSH)", "Also starts the SSH server"),
+}
 GPU_SWITCH = "/usr/libexec/pcos/pcos-gpu-switch"
 
 
@@ -62,6 +72,7 @@ class Window(Adw.ApplicationWindow):
         for name, title, icon in (
             ("security", "Security", "security-high-symbolic"),
             ("apps", "Apps", "application-x-executable-symbolic"),
+            ("network", "Network", "network-wireless-symbolic"),
             ("disk", "Disk", "drive-harddisk-symbolic"),
             ("graphics", "Graphics", "video-display-symbolic"),
             ("system", "System", "computer-symbolic"),
@@ -98,6 +109,7 @@ class Window(Adw.ApplicationWindow):
             data = {
                 "admin": status.admin_status(),
                 "apps": status.apps_status(),
+                "network": status.network_status(),
                 "disk": status.disk_status(),
                 "graphics": status.graphics_status(),
                 "system": status.system_status(),
@@ -116,6 +128,7 @@ class Window(Adw.ApplicationWindow):
     def _apply(self, data) -> bool:
         self._set_groups("security", self._security(data["admin"]))
         self._set_groups("apps", self._apps(data["apps"]))
+        self._set_groups("network", self._network(data["network"]))
         self._set_groups("disk", self._disk(data["disk"]))
         self._set_groups("graphics", self._graphics(data["graphics"]))
         self._set_groups("system", self._system(data["system"]))
@@ -183,6 +196,33 @@ class Window(Adw.ApplicationWindow):
         return [
             group("App approval", "Like Gatekeeper on a Mac: you decide what runs.", approval),
             group("Browser extensions", "Firefox can install only the extensions approved here. Paste a link and press Enter.", ext_rows),
+        ]
+
+    def _network(self, s: status.NetworkStatus) -> list[Adw.PreferencesGroup]:
+        net_rows: list[Gtk.Widget] = []
+        for n in s.networks:
+            if n.trusted:
+                net_rows.append(button_row(n.name, f"Home (trusted) · {n.device}", "Make Public",
+                                           lambda u=n.uuid: self._privileged([NETWORK, "trust", u, "public"], "Network is now Public.")))
+            else:
+                net_rows.append(button_row(n.name, f"Public: nothing can connect to this PC · {n.device}", "Make Home…",
+                                           lambda u=n.uuid: self._privileged([NETWORK, "trust", u, "home"], "Network is now Home.")))
+        if not net_rows:
+            net_rows.append(info_row("No Wi-Fi or wired network connected"))
+
+        share_rows: list[Gtk.Widget] = []
+        for name, (title, subtitle) in SHARING_LABELS.items():
+            row = Adw.SwitchRow(title=title, subtitle=subtitle, active=name in s.shared)
+            row.connect("notify::active", lambda r, _p, nm=name: self._privileged(
+                [NETWORK, "share", nm, "on" if r.get_active() else "off"],
+                f"{SHARING_LABELS[nm][0]} {'on' if r.get_active() else 'off'} for Home networks."))
+            share_rows.append(row)
+        if s.shared:
+            share_rows.append(button_row("Stop all sharing", "Close everything at once.", "Stop",
+                                         lambda: self._privileged([NETWORK, "stop-sharing"], "All sharing stopped.")))
+        return [
+            group("Networks", "Every network is Public until you mark it Home. On Public networks nothing can connect to this PC.", net_rows),
+            group("Sharing on Home networks", "Always closed on Public networks.", share_rows),
         ]
 
     def _disk(self, s: status.DiskStatus) -> list[Adw.PreferencesGroup]:

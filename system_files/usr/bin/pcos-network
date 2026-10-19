@@ -1,0 +1,150 @@
+#!/bin/bash
+# RudramOS network protection (docs/DESIGN.md §5). Every network is Public (nothing gets in)
+# until an admin marks it as Home. Sharing can only be opened on Home networks.
+#
+#   status                         networks, their trust, and what's shared on Home networks
+#   trust <network> home|public    mark a network (name or UUID) as Home or Public
+#   share <what> on|off            open/close a sharing service on Home networks:
+#                                  printer-discovery phone remote-desktop file-sharing steam-streaming ssh
+#   stop-sharing                   close every sharing service
+#   apply                          put active networks in the right firewall zone
+#   apply-device <iface> <uuid>    same for one interface (used by the NetworkManager hook)
+
+set -euo pipefail
+
+# Testability override
+TRUSTED_FILE="${TRUSTED_FILE:-/etc/pcos/trusted-networks}"
+HOME_ZONE="pcos-home"
+PUBLIC_ZONE="pcos-public"
+
+# Friendly name -> firewalld service
+declare -A SERVICES=(
+    [printer-discovery]=mdns
+    [phone]=kdeconnect
+    [remote-desktop]=rdp
+    [file-sharing]=samba
+    [steam-streaming]=steam-streaming
+    [ssh]=ssh
+)
+SERVICE_ORDER=(printer-discovery phone remote-desktop file-sharing steam-streaming ssh)
+
+die() {
+    echo "$*" >&2
+    exit 1
+}
+
+require_root() {
+    # PCOS_TEST_ROOT lets tests/test-network.sh run without root
+    [[ "${EUID}" -eq 0 || "${PCOS_TEST_ROOT:-}" == 1 ]] || die "Run with sudo: sudo $(basename "$0") $*"
+}
+
+is_trusted() {
+    grep -q "^$1"$'\t' "${TRUSTED_FILE}" 2>/dev/null
+}
+
+# Active Wi-Fi/Ethernet connections as "uuid<TAB>type<TAB>device<TAB>name"
+active_connections() {
+    nmcli -t -f UUID,TYPE,DEVICE,NAME connection show --active 2>/dev/null |
+        while IFS= read -r line; do
+            # nmcli -t escapes ':' inside fields as '\:'
+            line="${line//\\:/$'\x1f'}"
+            IFS=: read -r uuid type dev name <<<"${line}"
+            case "${type}" in 802-11-wireless | 802-3-ethernet) ;; *) continue ;; esac
+            [[ -n "${dev}" ]] || continue
+            printf '%s\t%s\t%s\t%s\n' "${uuid}" "${type}" "${dev}" "${name//$'\x1f'/:}"
+        done
+}
+
+zone_for() {
+    if is_trusted "$1"; then echo "${HOME_ZONE}"; else echo "${PUBLIC_ZONE}"; fi
+}
+
+apply_device() {
+    local dev="$1" uuid="$2" type
+    type=$(nmcli -g GENERAL.TYPE device show "${dev}" 2>/dev/null || true)
+    case "${type}" in wifi | ethernet) ;; *) return 0 ;; esac
+    firewall-cmd --zone="$(zone_for "${uuid}")" --change-interface="${dev}" >/dev/null
+}
+
+apply_all() {
+    while IFS=$'\t' read -r uuid _ dev _; do
+        firewall-cmd --zone="$(zone_for "${uuid}")" --change-interface="${dev}" >/dev/null
+    done < <(active_connections)
+}
+
+cmd="${1:-status}"
+shift || true
+case "${cmd}" in
+status)
+    echo "Networks now:"
+    found=0
+    while IFS=$'\t' read -r uuid _ dev name; do
+        found=1
+        if is_trusted "${uuid}"; then t="Home (trusted)"; else t="Public"; fi
+        echo "  ${name} (${dev}): ${t}"
+    done < <(active_connections)
+    (( found )) || echo "  none"
+    echo "Sharing on Home networks:"
+    open=$(firewall-cmd --zone="${HOME_ZONE}" --list-services 2>/dev/null || true)
+    any=0
+    for name in "${SERVICE_ORDER[@]}"; do
+        if [[ " ${open} " == *" ${SERVICES[${name}]} "* ]]; then echo "  ${name}: on"; any=1; fi
+    done
+    (( any )) || echo "  nothing shared"
+    ;;
+trust)
+    require_root "${cmd}"
+    [[ $# -eq 2 && ( "$2" == home || "$2" == public ) ]] || die "usage: $(basename "$0") trust <network name or UUID> home|public"
+    info=$(nmcli -g connection.uuid,connection.id connection show "$1" 2>/dev/null) || die "No such network: $1"
+    uuid=$(sed -n 1p <<<"${info}")
+    name=$(sed -n 2p <<<"${info}")
+    [[ -n "${uuid}" ]] || die "No such network: $1"
+    mkdir -p "$(dirname "${TRUSTED_FILE}")"
+    tmp=$(mktemp)
+    grep -v "^${uuid}"$'\t' "${TRUSTED_FILE}" >"${tmp}" 2>/dev/null || true
+    [[ "$2" == home ]] && printf '%s\t%s\n' "${uuid}" "${name}" >>"${tmp}"
+    install -m 0644 "${tmp}" "${TRUSTED_FILE}"
+    rm -f "${tmp}"
+    apply_all
+    if [[ "$2" == home ]]; then
+        echo "${name} is now a Home network. Sharing you turn on is reachable on it."
+    else
+        echo "${name} is now Public: nothing can connect to this PC on it."
+    fi
+    ;;
+share)
+    require_root "${cmd}"
+    [[ $# -eq 2 && -n "${SERVICES[$1]+x}" && ( "$2" == on || "$2" == off ) ]] ||
+        die "usage: $(basename "$0") share <what> on|off  (what: ${SERVICE_ORDER[*]})"
+    svc="${SERVICES[$1]}"
+    if [[ "$2" == on ]]; then
+        firewall-cmd --permanent --zone="${HOME_ZONE}" --add-service="${svc}" >/dev/null
+        [[ "$1" == ssh ]] && systemctl enable --now sshd.service
+    else
+        firewall-cmd --permanent --zone="${HOME_ZONE}" --remove-service="${svc}" >/dev/null
+        [[ "$1" == ssh ]] && systemctl disable --now sshd.service
+    fi
+    firewall-cmd --reload >/dev/null
+    echo "$1 is $2 on Home networks (always closed on Public networks)."
+    ;;
+stop-sharing)
+    require_root "${cmd}"
+    for name in "${SERVICE_ORDER[@]}"; do
+        firewall-cmd --permanent --zone="${HOME_ZONE}" --remove-service="${SERVICES[${name}]}" >/dev/null 2>&1 || true
+    done
+    systemctl disable --now sshd.service >/dev/null 2>&1 || true
+    firewall-cmd --reload >/dev/null
+    echo "All sharing stopped."
+    ;;
+apply)
+    require_root "${cmd}"
+    apply_all
+    ;;
+apply-device)
+    require_root "${cmd}"
+    [[ $# -eq 2 ]] || die "usage: $(basename "$0") apply-device <iface> <uuid>"
+    apply_device "$1" "$2"
+    ;;
+-h | --help | help) sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//' ;;
+*) die "Unknown command: ${cmd}. See: $(basename "$0") --help" ;;
+esac

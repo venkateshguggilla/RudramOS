@@ -126,6 +126,22 @@ class StatusTests(unittest.TestCase):
         s = status.apps_status(os.path.join(self.dir.name, "missing.json"), run=fake_run({}))
         self.assertIsNone(s.approval_on)
 
+    def test_network_trust_and_sharing(self):
+        trusted = self.write("trusted", "bbbb-2222\tWired connection 1\n")
+        nm = ("aaaa-1111:802-11-wireless:wlp2s0:Cafe\\: Free WiFi\n"
+              "bbbb-2222:802-3-ethernet:enp3s0:Wired connection 1\n"
+              "cccc-3333:vpn:tun0:Work VPN\n"
+              "dddd-4444:802-11-wireless::Saved but inactive\n")
+        s = status.network_status(trusted, run=fake_run({"nmcli": nm, "firewall-cmd": "dhcpv6-client kdeconnect ssh\n"}))
+        self.assertEqual([(n.name, n.device, n.trusted) for n in s.networks],
+                         [("Cafe: Free WiFi", "wlp2s0", False), ("Wired connection 1", "enp3s0", True)])
+        self.assertEqual(s.shared, {"phone", "ssh"})
+
+    def test_network_without_tools(self):
+        s = status.network_status(os.path.join(self.dir.name, "none"), run=fake_run({}))
+        self.assertEqual(s.networks, [])
+        self.assertEqual(s.shared, set())
+
     def test_timeout_is_handled(self):
         def slow(*_a, **_k):
             raise subprocess.TimeoutExpired("rpm-ostree", 30)

@@ -108,6 +108,17 @@ sudo pcos-admin-mode strong
   sudo pcos-browser-extensions approve https://addons.mozilla.org/firefox/addon/bitwarden-password-manager/
   ```
 
+## Networks and sharing
+- Every network is **Public** until you mark it **Home**: nothing on the network can connect to this PC, and it doesn't answer pings (stealth).
+- When you join a new network, a notification asks **Home or Public?** Choosing Home needs admin approval.
+- Sharing (printer discovery, phone link, remote desktop, file sharing, Steam Remote Play, SSH) can only be turned on for **Home** networks, so it's closed automatically everywhere else. Use Control Center → **Network**, or:
+  ```bash
+  pcos-network status
+  ```
+  ```bash
+  sudo pcos-network share phone on
+  ```
+
 ## Disk encryption
 Tick **Encrypt my data** in the installer's **Installation Destination** and choose a passphrase. After the first login, set up how the drive unlocks:
 ```bash

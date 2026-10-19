@@ -50,6 +50,31 @@ class AppsStatus:
     extensions: dict[str, str] = field(default_factory=dict)  # approved browser extension id -> name
 
 
+@dataclass
+class Network:
+    uuid: str
+    name: str
+    device: str
+    trusted: bool
+
+
+# Friendly sharing name -> firewalld service, same as pcos-network
+SHARING = {
+    "printer-discovery": "mdns",
+    "phone": "kdeconnect",
+    "remote-desktop": "rdp",
+    "file-sharing": "samba",
+    "steam-streaming": "steam-streaming",
+    "ssh": "ssh",
+}
+
+
+@dataclass
+class NetworkStatus:
+    networks: list[Network] = field(default_factory=list)
+    shared: set[str] = field(default_factory=set)  # friendly names that are on for Home networks
+
+
 def _read(path: str, default: str = "") -> str:
     try:
         with open(path, encoding="utf-8") as f:
@@ -110,6 +135,33 @@ def apps_status(extensions_file: str = "/etc/pcos/browser-extensions.json", run=
     except ValueError:
         pass
     return AppsStatus(approval_on=approval_on, extensions=extensions)
+
+
+ESCAPED_COLON = "\\:"  # nmcli -t writes a literal backslash before ":" inside fields
+SEP = "\x1f"  # placeholder for escaped colons while splitting
+
+
+def network_status(trusted_file: str = "/etc/pcos/trusted-networks", run=subprocess.run) -> NetworkStatus:
+    trusted = {line.split("\t", 1)[0] for line in _read(trusted_file).splitlines() if line.strip()}
+    networks: list[Network] = []
+    try:
+        out = run(["nmcli", "-t", "-f", "UUID,TYPE,DEVICE,NAME", "connection", "show", "--active"],
+                  capture_output=True, text=True, timeout=10).stdout
+        for line in out.splitlines():
+            parts = [p.replace(SEP, ":") for p in line.replace(ESCAPED_COLON, SEP).split(":", 3)]
+            if len(parts) < 4 or parts[1] not in ("802-11-wireless", "802-3-ethernet") or not parts[2]:
+                continue
+            networks.append(Network(uuid=parts[0], name=parts[3], device=parts[2], trusted=parts[0] in trusted))
+    except (OSError, subprocess.SubprocessError):
+        pass
+    shared: set[str] = set()
+    try:
+        services = run(["firewall-cmd", "--zone=pcos-home", "--list-services"],
+                       capture_output=True, text=True, timeout=10).stdout.split()
+        shared = {name for name, svc in SHARING.items() if svc in services}
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return NetworkStatus(networks=networks, shared=shared)
 
 
 def _image_name(ref: str) -> str:

@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=RudramOS Network Trust
+Comment=Asks whether a newly joined network is Home (trusted) or Public
+Exec=/usr/libexec/pcos/pcos-network-prompt
+Icon=network-wireless
+NoDisplay=true
+X-GNOME-Autostart-enabled=true
+X-GNOME-Autostart-Delay=10

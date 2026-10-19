@@ -12,7 +12,7 @@ SIGNING_PUBKEY="/etc/pki/containers/pcos.pub"
 ### System files
 # Copy the contents of system_files/ in the git repo to /
 cp -avf "/ctx/system_files"/. /
-chmod 0755 /usr/bin/pcos-app-guard /usr/bin/pcos-browser-extensions /usr/libexec/pcos/pcos-app-guard-notify /usr/bin/pcos-control /usr/libexec/pcos/pcos-terminal-run /usr/bin/pcos-admin-mode /usr/bin/pcos-disk-security /usr/bin/pcos-driver-assistant /usr/libexec/pcos/pcos-gpu-detect /usr/libexec/pcos/pcos-gpu-switch
+chmod 0755 /usr/bin/pcos-network /usr/libexec/pcos/pcos-network-prompt /usr/lib/NetworkManager/dispatcher.d/50-pcos-network-trust /usr/bin/pcos-app-guard /usr/bin/pcos-browser-extensions /usr/libexec/pcos/pcos-app-guard-notify /usr/bin/pcos-control /usr/libexec/pcos/pcos-terminal-run /usr/bin/pcos-admin-mode /usr/bin/pcos-disk-security /usr/bin/pcos-driver-assistant /usr/libexec/pcos/pcos-gpu-detect /usr/libexec/pcos/pcos-gpu-switch
 
 ### Branding (Phase 1 basics; full branding in Phase 12)
 sed -i 's/^PRETTY_NAME=.*/PRETTY_NAME="RudramOS"/' /usr/lib/os-release
@@ -89,6 +89,26 @@ systemctl enable fapolicyd.service pcos-app-guard-rules.service
 
 ### Browser extension control (docs/DESIGN.md §4.5)
 systemctl enable pcos-firefox-policy.service
+
+### Network protection (docs/DESIGN.md §5)
+# Every network starts in pcos-public (all incoming blocked, stealth); pcos-network and the
+# NetworkManager hook move admin-approved Home networks to pcos-home.
+FIREWALLD_CONF=/etc/firewalld/firewalld.conf
+sed -i -E 's/^DefaultZone=.*/DefaultZone=pcos-public/' "${FIREWALLD_CONF}"
+grep -qx 'DefaultZone=pcos-public' "${FIREWALLD_CONF}" || { echo "ERROR: could not set the default firewall zone" >&2; exit 1; }
+firewall-offline-cmd --check-config
+systemctl enable firewalld.service
+mkdir -p /etc/pcos
+touch /etc/pcos/trusted-networks
+# Nothing listening or announcing by default: no SSH server, no printer auto-adding over the
+# network (cups-browsed, CVE-2024-47176 class), Avahi browses but never announces this PC
+systemctl disable sshd.service 2>/dev/null || true
+systemctl mask cups-browsed.service
+AVAHI_CONF=/etc/avahi/avahi-daemon.conf
+if [[ -f "${AVAHI_CONF}" ]]; then
+    sed -i -E 's/^#?[[:space:]]*disable-publishing[[:space:]]*=.*/disable-publishing=yes/' "${AVAHI_CONF}"
+    grep -qx 'disable-publishing=yes' "${AVAHI_CONF}" || { echo "ERROR: could not configure ${AVAHI_CONF}" >&2; exit 1; }
+fi
 
 ### Check the Control Center loads (imports GTK/Adw, no display needed)
 python3 -B -c 'import sys; sys.path.insert(0, "/usr/lib/pcos-control"); import pcos_control.app'

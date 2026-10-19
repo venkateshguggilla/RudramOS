@@ -1,0 +1,44 @@
+#!/bin/bash
+# RudramOS: asks "Home or Public?" the first time this PC joins a Wi-Fi/Ethernet network.
+# Every network is Public until then. Marking it Home needs admin approval (pkexec).
+# Runs in the desktop session; checks active networks every 10 seconds.
+
+set -uo pipefail
+
+TRUSTED_FILE=/etc/pcos/trusted-networks
+STATE_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/pcos"
+ASKED="${STATE_DIR}/networks-asked"
+mkdir -p "${STATE_DIR}"
+touch "${ASKED}"
+
+ask() {
+    local uuid="$1" name="$2" choice
+    choice=$(notify-send --app-name="RudramOS" --icon=network-wireless --wait \
+        --action=public="Public" --action=home="Home (trusted)…" \
+        "Connected to ${name}" \
+        "Is this your home network? On Public networks (cafés, hotels, offices) nothing can connect to this PC. Choose Home only for networks you trust.")
+    case "${choice}" in
+    home)
+        if ! pkexec /usr/bin/pcos-network trust "${uuid}" home; then
+            # Approval cancelled: stays Public, ask again next time
+            sed -i "/^${uuid}\$/d" "${ASKED}"
+            return
+        fi
+        notify-send --app-name="RudramOS" --icon=network-wireless "${name} is a Home network" \
+            "Sharing you turn on in RudramOS Control Center works on this network only." ;;
+    *) ;; # Public, or dismissed: stays Public
+    esac
+}
+
+while true; do
+    while IFS= read -r line; do
+        line="${line//\\:/$'\x1f'}"
+        IFS=: read -r uuid type name <<<"${line}"
+        case "${type}" in 802-11-wireless | 802-3-ethernet) ;; *) continue ;; esac
+        grep -qxF "${uuid}" "${ASKED}" && continue
+        grep -q "^${uuid}"$'\t' "${TRUSTED_FILE}" 2>/dev/null && continue
+        echo "${uuid}" >>"${ASKED}"
+        ask "${uuid}" "${name//$'\x1f'/:}" &
+    done < <(nmcli -t -f UUID,TYPE,NAME connection show --active 2>/dev/null)
+    sleep 10
+done

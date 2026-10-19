@@ -1,0 +1,12 @@
+#!/bin/bash
+# RudramOS: when a Wi-Fi/Ethernet network comes up, put it in the firewall zone the admin chose
+# (pcos-home if listed in /etc/pcos/trusted-networks, else pcos-public). Runs as root, so a
+# zone set by editing the connection profile (no admin approval needed for that) is overridden.
+iface="$1"
+action="$2"
+case "${action}" in
+up | reapply) ;;
+*) exit 0 ;;
+esac
+[[ -n "${iface}" && -n "${CONNECTION_UUID:-}" ]] || exit 0
+exec /usr/bin/pcos-network apply-device "${iface}" "${CONNECTION_UUID}"

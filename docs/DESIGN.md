@@ -222,13 +222,13 @@ Selected from secureblue / KSPP, avoiding settings known to break apps.
 - **firewalld** with two custom zones:
   | Zone | Inbound | Notes |
   |---|---|---|
-  | `pcos-public` (default) | **Drop everything**, no ICMP echo reply (stealth) | Sharing can't be enabled |
-  | `pcos-home` | Drop by default; only services the user enabled are opened | mDNS, KDE Connect (1714–1764/tcp+udp), file sharing, remote desktop when enabled |
+  | `pcos-public` (default) | **Drop everything**, no ICMP echo reply (stealth); only IPv6 neighbour discovery, router adverts, path-MTU and error ICMP allowed (`icmp-block-inversion`) | Sharing can't be enabled |
+  | `pcos-home` | Same defaults; only services the user enabled are opened | `mdns`, `kdeconnect`, `rdp`, `samba`, `steam-streaming`, `ssh` via `pcos-network share` |
 - Outbound: allowed (no domain restrictions; this was explicitly decided).
 - Changing zones or rules needs admin approval.
 
 ### 5.2 Network trust prompt
-- When a new connection appears, NetworkManager triggers a dispatcher script, and Control Center asks **"Home (trusted) or Public?"**. The answer is stored per connection (`connection.zone`).
+- When a new connection appears, `pcos-network-prompt` (desktop session) asks **"Home (trusted) or Public?"**. Home is recorded by connection UUID in root-owned `/etc/pcos/trusted-networks`, and the root NetworkManager dispatcher hook enforces the zone. NetworkManager's per-connection `connection.zone` isn't trusted, because users can edit it without admin approval.
 - Marking a network as **Home** needs admin approval.
 - Unanswered means **Public**.
 

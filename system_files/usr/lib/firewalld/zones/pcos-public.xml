@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- RudramOS Public network (default for every network): nothing gets in.
+     Unsolicited traffic is dropped silently (stealth: no ping replies, no "port closed"
+     answers). Replies to connections this PC starts work as usual (connection tracking).
+     The listed ICMP types are the only ones allowed in (icmp-block-inversion): IPv6
+     neighbour discovery and router adverts, which IPv6 needs to work at all, plus path-MTU
+     and error messages. Sharing services can't be opened here (pcos-network refuses). -->
+<zone target="DROP">
+  <short>RudramOS Public</short>
+  <description>Untrusted network: all incoming connections blocked, stealth mode.</description>
+  <service name="dhcpv6-client"/>
+  <icmp-block-inversion/>
+  <icmp-block name="neighbour-solicitation"/>
+  <icmp-block name="neighbour-advertisement"/>
+  <icmp-block name="router-advertisement"/>
+  <icmp-block name="packet-too-big"/>
+  <icmp-block name="destination-unreachable"/>
+  <icmp-block name="time-exceeded"/>
+</zone>
