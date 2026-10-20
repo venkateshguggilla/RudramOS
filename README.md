@@ -29,7 +29,7 @@ Built from the [Universal Blue image-template](https://github.com/ublue-os/image
 | `system_files/` | Files copied into the image (`/etc`, `/usr`) |
 | `disk_config/` | Installer ISO / VM disk settings |
 | `keys/cosign.pub` | Public key the OS uses to verify updates |
-| `.github/workflows/build.yml` | Builds, signs and publishes `ghcr.io/venkateshguggilla/pcos` |
+| `.github/workflows/build.yml` | Builds, signs and publishes `ghcr.io/venkateshguggilla/rudramos` |
 | `.github/workflows/build-disk.yml` | Builds the installer ISO (run manually) |
 
 ## One-time setup (GitHub)
@@ -59,11 +59,11 @@ The token can only read packages, so a leaked token can't change the repo or pub
 ## Image variants
 | Image | For |
 |---|---|
-| `pcos` | AMD and Intel graphics |
-| `pcos-nvidia` | NVIDIA RTX 20/30/40/50 and GTX 16 series (e.g. RTX 3060) |
-| `pcos-nvidia-legacy` | NVIDIA GTX 10 series and older Pascal/Maxwell (e.g. GTX 1050 Ti), 580 LTS driver |
+| `rudramos` | AMD and Intel graphics |
+| `rudramos-nvidia` | NVIDIA RTX 20/30/40/50 and GTX 16 series (e.g. RTX 3060) |
+| `rudramos-nvidia-legacy` | NVIDIA GTX 10 series and older Pascal/Maxwell (e.g. GTX 1050 Ti), 580 LTS driver |
 
-**Use the standard `pcos` ISO on every PC.** After the first login, the **Driver Assistant** detects the graphics card and, if it's NVIDIA, offers to install the right driver (admin approval, download, restart). On Secure Boot PCs a blue **MOK Manager** screen appears once after that restart: choose **Enroll MOK → Continue → Yes**, enter `universalblue`, then **Reboot**. Check with `nvidia-smi`.
+**Use the standard `rudramos` ISO on every PC.** After the first login, the **Driver Assistant** detects the graphics card and, if it's NVIDIA, offers to install the right driver (admin approval, download, restart). On Secure Boot PCs a blue **MOK Manager** screen appears once after that restart: choose **Enroll MOK → Continue → Yes**, enter `universalblue`, then **Reboot**. Check with `nvidia-smi`.
 
 Check what was detected, from a terminal:
 ```bash
@@ -72,8 +72,12 @@ pcos-driver-assistant --check
 
 Switch variants by hand (signature-checked), if ever needed:
 ```bash
-sudo bootc switch --enforce-container-sigpolicy ghcr.io/venkateshguggilla/pcos-nvidia:latest
+sudo bootc switch --enforce-container-sigpolicy ghcr.io/venkateshguggilla/rudramos-nvidia:latest
 ```
+
+**Renamed from `pcos` (October 2026).** The images used to be `pcos`, `pcos-nvidia` and `pcos-nvidia-legacy`. They are still published, signed, under those names during the switch-over. Installed PCs move to the new names by themselves (`pcos-image-rename.timer`), but only once the new name can be downloaded. Nothing is downloaded at that moment; only where updates come from changes. The command names (`pcos-usb`, `pcos-control`, ...) are unchanged for now.
+
+One-time step after the first build with the new names: on GitHub, open each new package (`rudramos`, `rudramos-nvidia`, `rudramos-nvidia-legacy`) → Package settings → **Change visibility → Public**. New packages start private, and until they're public, installed PCs stay on the old names.
 
 ## RudramOS Control Center
 Open **RudramOS Control Center** from the app grid (or run `pcos-control`). It shows and changes admin protection, disk encryption, the graphics driver and updates in one place. Steps that need your password or a security-key touch open in a terminal window.

@@ -2,9 +2,9 @@
 # Based on the Universal Blue image-template (Apache-2.0): https://github.com/ublue-os/image-template
 
 # Base image and GPU variant (set by CI, see .github/workflows/build.yml):
-#   pcos                 BASE_IMAGE=ghcr.io/ublue-os/bluefin              GPU=none
-#   pcos-nvidia          BASE_IMAGE=ghcr.io/ublue-os/bluefin-nvidia-open  GPU=nvidia
-#   pcos-nvidia-legacy   BASE_IMAGE=ghcr.io/ublue-os/bluefin              GPU=nvidia-legacy
+#   rudramos                 BASE_IMAGE=ghcr.io/ublue-os/bluefin              GPU=none
+#   rudramos-nvidia          BASE_IMAGE=ghcr.io/ublue-os/bluefin-nvidia-open  GPU=nvidia
+#   rudramos-nvidia-legacy   BASE_IMAGE=ghcr.io/ublue-os/bluefin              GPU=nvidia-legacy
 ARG BASE_IMAGE="ghcr.io/ublue-os/bluefin"
 ARG BASE_TAG="stable"
 

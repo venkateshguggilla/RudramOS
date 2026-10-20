@@ -85,21 +85,21 @@ All variants are built from one recipe; only the GPU driver layer differs.
 
 | Image | For | Driver |
 |---|---|---|
-| `pcos` | AMD and Intel GPUs (e.g. Radeon Pro 5500M) | Open drivers in the kernel + Mesa |
-| `pcos-nvidia` | NVIDIA Turing and newer: RTX 20/30/40/50, GTX 16 (e.g. **RTX 3060**) | NVIDIA latest, open kernel modules |
-| `pcos-nvidia-legacy` | NVIDIA Pascal/Maxwell: GTX 10 series (e.g. **GTX 1050 Ti**) | NVIDIA **580xx** legacy branch (RPM Fusion / negativo17); expected end of life around 2028 |
+| `rudramos` | AMD and Intel GPUs (e.g. Radeon Pro 5500M) | Open drivers in the kernel + Mesa |
+| `rudramos-nvidia` | NVIDIA Turing and newer: RTX 20/30/40/50, GTX 16 (e.g. **RTX 3060**) | NVIDIA latest, open kernel modules |
+| `rudramos-nvidia-legacy` | NVIDIA Pascal/Maxwell: GTX 10 series (e.g. **GTX 1050 Ti**) | NVIDIA **580xx** legacy branch (RPM Fusion / negativo17); expected end of life around 2028 |
 
 NVIDIA kernel modules are **pre-built and signed** by Universal Blue's akmods pipeline:
-- `pcos-nvidia` inherits them from `bluefin-nvidia-open`.
-- `pcos-nvidia-legacy` installs `ghcr.io/ublue-os/akmods-nvidia-lts:coreos-stable-<fedora>-<kernel>` (580 branch, closed modules), always matched to the base image's exact kernel (`build_files/gpu.sh`).
+- `rudramos-nvidia` inherits them from `bluefin-nvidia-open`.
+- `rudramos-nvidia-legacy` installs `ghcr.io/ublue-os/akmods-nvidia-lts:coreos-stable-<fedora>-<kernel>` (580 branch, closed modules), always matched to the base image's exact kernel (`build_files/gpu.sh`).
 
-**Driver Assistant** (users never pick a variant by hand): everyone installs from the standard `pcos` ISO. At login, `pcos-driver-assistant` (XDG autostart) runs `pcos-gpu-detect`, which classifies the display controllers from `lspci` PCI IDs:
+**Driver Assistant** (users never pick a variant by hand): everyone installs from the standard `rudramos` ISO. At login, `pcos-driver-assistant` (XDG autostart) runs `pcos-gpu-detect`, which classifies the display controllers from `lspci` PCI IDs:
 
 | NVIDIA device ID | Generation | Variant |
 |---|---|---|
-| ≥ 0x1E00 | Turing and newer | `pcos-nvidia` |
-| 0x1340–0x1DFF | Maxwell / Pascal / Volta | `pcos-nvidia-legacy` |
-| < 0x1340 | Kepler and older | `pcos` (nouveau; no current driver) |
+| ≥ 0x1E00 | Turing and newer | `rudramos-nvidia` |
+| 0x1340–0x1DFF | Maxwell / Pascal / Volta | `rudramos-nvidia-legacy` |
+| < 0x1340 | Kepler and older | `rudramos` (nouveau; no current driver) |
 
 If the installed variant (`/usr/share/pcos/gpu-variant`) doesn't match, a notification offers **Install driver / Not now / Don't ask again**. Installing runs `pkexec pcos-gpu-switch <variant>` (polkit action `org.pcos.driver-assistant.switch`, admin approval) → a signature-checked `bootc switch`, plus queued MOK enrollment on Secure Boot PCs → "Restart now". This also works in reverse: a disk moved to a PC without NVIDIA is offered the standard variant. `pcos-driver-assistant --check` shows the result without changing anything.
 
@@ -497,12 +497,12 @@ Implementation: GNOME Initial Setup with added RudramOS pages, or a dedicated `p
 ## 11. Hardware support and test matrix
 | Machine | GPU | Image | Notes |
 |---|---|---|---|
-| Dev PC (likely Intel MacBook Pro 16" 2019, **T2**) | AMD Radeon Pro 5500M | `pcos` | Needs a **t2linux** kernel for keyboard, trackpad, audio and Wi-Fi; Apple Secure Boot settings must allow external boot; fan control through `applesmc` |
-| Desktop 1 | NVIDIA **RTX 3060** | `pcos-nvidia` | Main NVIDIA test machine |
-| Desktop 2 | NVIDIA **GTX 1050 Ti** | `pcos-nvidia-legacy` | 580xx driver; plan support until about 2028 |
-| VMs | virtual | `pcos` | Hyper-V Gen 2 (Secure Boot + vTPM) on Windows 10 Pro; QEMU/KVM + swtpm on Linux |
+| Dev PC (likely Intel MacBook Pro 16" 2019, **T2**) | AMD Radeon Pro 5500M | `rudramos` | Needs a **t2linux** kernel for keyboard, trackpad, audio and Wi-Fi; Apple Secure Boot settings must allow external boot; fan control through `applesmc` |
+| Desktop 1 | NVIDIA **RTX 3060** | `rudramos-nvidia` | Main NVIDIA test machine |
+| Desktop 2 | NVIDIA **GTX 1050 Ti** | `rudramos-nvidia-legacy` | 580xx driver; plan support until about 2028 |
+| VMs | virtual | `rudramos` | Hyper-V Gen 2 (Secure Boot + vTPM) on Windows 10 Pro; QEMU/KVM + swtpm on Linux |
 
-**T2 Mac support** would need a separate `pcos-t2` variant (t2linux kernel and firmware). It's optional and planned as a later phase.
+**T2 Mac support** would need a separate `rudramos-t2` variant (t2linux kernel and firmware). It's optional and planned as a later phase.
 
 ---
 

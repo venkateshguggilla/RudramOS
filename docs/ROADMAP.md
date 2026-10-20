@@ -35,7 +35,7 @@ Tracks B and C start on **Windows** (refactor + cross-platform UI) and don't dep
 ## Phase 1: Minimal signed image (M): ✅ complete 2026-10-18
 - [x] Start from the Universal Blue `image-template`. Create `Containerfile` `FROM ghcr.io/ublue-os/bluefin:stable` (or `base-main`)
 - [~] Add RudramOS branding basics: `/etc/os-release` name (done), wallpaper, logo (Phase 12)
-- [x] GitHub Actions workflow: build → **cosign sign** → push `ghcr.io/<you>/pcos:latest` + dated tags
+- [x] GitHub Actions workflow: build → **cosign sign** → push `ghcr.io/<you>/rudramos:latest` + dated tags
 - [x] Workflow to build an **installer ISO** with `bootc-image-builder`
 - [x] Container signature policy in the image (`/etc/containers/policy.json` + `registries.d`) so the PC **only accepts our signed images**
 - [x] Automatic update timer (provided by Bluefin's `uupd.timer`)
@@ -50,8 +50,8 @@ Tracks B and C start on **Windows** (refactor + cross-platform UI) and don't dep
 
 ## Phase 2: GPU image variants (M)
 - [x] `ARG BASE_IMAGE` + `ARG GPU=none|nvidia|nvidia-legacy` in the Containerfile; driver layer in `build_files/gpu.sh`
-- [x] `pcos-nvidia`: based on `bluefin-nvidia-open` (NVIDIA latest driver, open kernel modules)
-- [x] `pcos-nvidia-legacy`: NVIDIA **580 LTS** closed modules from Universal Blue's `akmods-nvidia-lts`, matched to the base kernel
+- [x] `rudramos-nvidia`: based on `bluefin-nvidia-open` (NVIDIA latest driver, open kernel modules)
+- [x] `rudramos-nvidia-legacy`: NVIDIA **580 LTS** closed modules from Universal Blue's `akmods-nvidia-lts`, matched to the base kernel
 - [~] Secure Boot signing: uses the Universal Blue akmods key (`ujust enroll-secure-boot-key`); own RudramOS MOK key deferred
 - [x] Build matrix in CI: 3 images (`build.yml`) + ISO per variant (`build-disk.yml` `variant` input)
 - [x] Signature policy covers all 3 image repos, so switching variants is verified too
@@ -59,7 +59,7 @@ Tracks B and C start on **Windows** (refactor + cross-platform UI) and don't dep
 - [x] Repo and all 3 container images public (2026-10-18): PCs pull updates and drivers without a token; signatures verify anonymously
 
 **Done when:**
-- [ ] AMD/Intel: `pcos` boots in the VM, and on the dev PC (live USB) the GPU works with the `amdgpu` driver
+- [ ] AMD/Intel: `rudramos` boots in the VM, and on the dev PC (live USB) the GPU works with the `amdgpu` driver
 - [ ] Standard ISO on an NVIDIA PC: Driver Assistant offers the right driver, and after restart + MOK enrollment the driver is active
 - [ ] **RTX 3060** PC: `nvidia-smi` works with Secure Boot ON, Wayland desktop, a Steam game runs
 - [ ] **GTX 1050 Ti** PC: same checks with the 580 LTS driver
@@ -262,6 +262,13 @@ Repo: `C:\Venky\work\pc_cleaner` (or `apps/pc-cleaner`)
 
 ---
 
+## Rename to RudramOS (October 2026)
+- [x] GitHub repo `pcos` → **RudramOS** (old URL redirects); images `rudramos`, `rudramos-nvidia`, `rudramos-nvidia-legacy`
+- [x] Switch-over: CI publishes and signs both names; the image trusts both; `pcos-image-rename.timer` moves installed PCs (`bootc switch --mutate-in-place`) once the new name can be downloaded; the Driver Assistant falls back to the old name until then; tests
+- [ ] Make the three new GHCR packages public (GitHub UI, once)
+- [ ] Confirm the VM and the 1050 Ti PC moved to `rudramos*` (`bootc status`), then stop publishing `pcos*`
+- [ ] Rename internal names (`pcos-*` commands, `org.pcos.*` polkit ids, `/etc/pcos`, `/usr/share/pcos`) with migration of existing settings: its own change, after the hardware tests
+
 ## Phase 12: First-boot setup and polish (M)
 - [ ] First-boot flow (DESIGN §10): admin mode, keys, disk unlock, recovery key, privacy preset, network trust, MOK enrollment, phone
 - [x] **Look and feel** from the Shiva-eyes-and-trishul art (images made by `tools/make-branding.py`, `tools/make-plymouth-frames.py`):
@@ -291,7 +298,7 @@ Repo: `C:\Venky\work\pc_cleaner` (or `apps/pc-cleaner`)
 ---
 
 ## Later / optional
-- `pcos-t2` image variant for Intel Macs with the T2 chip (t2linux kernel/firmware)
+- `rudramos-t2` image variant for Intel Macs with the T2 chip (t2linux kernel/firmware)
 - Signed UKI + own Secure Boot keys (full custom chain)
 - `hardened_malloc` in the Maximum preset
 - Built-in encrypted backup page

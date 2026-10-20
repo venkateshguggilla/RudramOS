@@ -18,12 +18,12 @@ on:
       variant:
         description: "Image variant (GPU driver)"
         required: true
-        default: pcos
+        default: rudramos
         type: choice
         options:
-          - pcos
-          - pcos-nvidia
-          - pcos-nvidia-legacy
+          - rudramos
+          - rudramos-nvidia
+          - rudramos-nvidia-legacy
   pull_request:
     branches:
       - main
@@ -33,7 +33,7 @@ on:
       - '.github/workflows/build-disk.yml'
 
 env:
-  IMAGE_NAME: ${{ inputs.variant || 'pcos' }} # one of the variants built by build.yml
+  IMAGE_NAME: ${{ inputs.variant || 'rudramos' }} # one of the variants built by build.yml
   IMAGE_REGISTRY: "ghcr.io/${{ github.repository_owner }}"  # do not edit
   DEFAULT_TAG: "latest"
   BIB_IMAGE: "quay.io/centos-bootc/bootc-image-builder:latest"
@@ -92,7 +92,7 @@ jobs:
       # RudramOS: the installed system must track the same variant it was installed from
       - name: Point installer at the selected variant
         run: |
-          sed -i "s|/pcos:latest|/${IMAGE_NAME}:latest|" disk_config/iso.toml
+          sed -i "s|/rudramos:latest|/${IMAGE_NAME}:latest|" disk_config/iso.toml
           grep -n "bootc switch" disk_config/iso.toml
 
       - name: Build disk images

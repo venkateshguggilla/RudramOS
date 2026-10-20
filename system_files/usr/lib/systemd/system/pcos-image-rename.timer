@@ -1,0 +1,9 @@
+[Unit]
+Description=Move updates to the RudramOS image name (retries until the new name is available)
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=6h
+
+[Install]
+WantedBy=timers.target

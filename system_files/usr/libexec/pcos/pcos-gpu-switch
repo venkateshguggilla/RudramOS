@@ -2,7 +2,8 @@
 # Privileged part of the RudramOS Driver Assistant. Run through pkexec (polkit action
 # org.pcos.driver-assistant.switch), so it asks for admin approval.
 #
-# Usage: pcos-gpu-switch <pcos|pcos-nvidia|pcos-nvidia-legacy>
+# Usage: pcos-gpu-switch <rudramos|rudramos-nvidia|rudramos-nvidia-legacy>
+#   (the names before the rename, pcos|pcos-nvidia|pcos-nvidia-legacy, are accepted too)
 #   1. Switches the system to that image variant (signature-checked, applied on next restart)
 #   2. For NVIDIA variants on Secure Boot PCs, queues enrollment of the driver signing key
 #
@@ -17,9 +18,10 @@ ENROLLMENT_PASSWORD="universalblue"
 
 variant="${1:-}"
 case "${variant}" in
-pcos | pcos-nvidia | pcos-nvidia-legacy) ;;
+rudramos | rudramos-nvidia | rudramos-nvidia-legacy) ;;
+pcos | pcos-nvidia | pcos-nvidia-legacy) variant="rudramos${variant#pcos}" ;;
 *)
-    echo "usage: $0 <pcos|pcos-nvidia|pcos-nvidia-legacy>" >&2
+    echo "usage: $0 <rudramos|rudramos-nvidia|rudramos-nvidia-legacy>" >&2
     exit 2
     ;;
 esac
@@ -29,13 +31,20 @@ if [[ "${EUID}" -ne 0 ]]; then
     exit 2
 fi
 
-echo "Switching to ${REGISTRY}/${variant}:latest"
-if ! bootc switch --enforce-container-sigpolicy "${REGISTRY}/${variant}:latest"; then
+# The rudramos names replace pcos (rename to RudramOS). Until the new name can be downloaded,
+# use the old one; pcos-image-rename.timer moves the PC over later by itself.
+image="${REGISTRY}/${variant}:latest"
+if ! skopeo inspect --retry-times 2 --no-tags "docker://${image}" >/dev/null 2>&1; then
+    image="${REGISTRY}/pcos${variant#rudramos}:latest"
+fi
+
+echo "Switching to ${image}"
+if ! bootc switch --enforce-container-sigpolicy "${image}"; then
     echo "bootc switch failed" >&2
     exit 3
 fi
 
-if [[ "${variant}" == pcos-nvidia* ]] && mokutil --sb-state 2>/dev/null | grep -q "SecureBoot enabled"; then
+if [[ "${variant}" == rudramos-nvidia* ]] && mokutil --sb-state 2>/dev/null | grep -q "SecureBoot enabled"; then
     if mokutil --test-key "${SECUREBOOT_KEY}" 2>/dev/null | grep -q "already enrolled"; then
         echo "Driver signing key already enrolled"
     else

@@ -75,30 +75,30 @@ class StatusTests(unittest.TestCase):
 
     def test_graphics_needs_driver(self):
         variant = self.write("gpu-variant", "none\n")
-        run = fake_run({"pcos-gpu-detect": "pcos-nvidia-legacy\tNVIDIA GP107 [GeForce GTX 1050 Ti]\tNVIDIA Pascal\n"})
+        run = fake_run({"pcos-gpu-detect": "rudramos-nvidia-legacy\tNVIDIA GP107 [GeForce GTX 1050 Ti]\tNVIDIA Pascal\n"})
         s = status.graphics_status("/x/pcos-gpu-detect", variant, run=run)
-        self.assertEqual(s.installed, "pcos")
-        self.assertEqual(s.wanted, "pcos-nvidia-legacy")
+        self.assertEqual(s.installed, "rudramos")
+        self.assertEqual(s.wanted, "rudramos-nvidia-legacy")
         self.assertIn("1050 Ti", s.gpu_name)
 
     def test_graphics_detection_failure_keeps_installed(self):
         variant = self.write("gpu-variant", "nvidia\n")
         s = status.graphics_status("/x/pcos-gpu-detect", variant, run=fake_run({}))
-        self.assertEqual(s.installed, "pcos-nvidia")
-        self.assertEqual(s.wanted, "pcos-nvidia")
+        self.assertEqual(s.installed, "rudramos-nvidia")
+        self.assertEqual(s.wanted, "rudramos-nvidia")
 
     def test_system_booted_and_staged(self):
         osr = self.write("os-release", 'NAME="Bluefin"\nPRETTY_NAME="RudramOS"\n')
         date = self.write("build-date", "20261018\n")
         rpm = json.dumps({"deployments": [
-            {"booted": False, "staged": True, "container-image-reference": "ostree-image-signed:docker://ghcr.io/o/pcos-nvidia:latest"},
+            {"booted": False, "staged": True, "container-image-reference": "ostree-image-signed:docker://ghcr.io/o/rudramos-nvidia:latest"},
             {"booted": True, "staged": False, "container-image-reference": "ostree-image-signed:docker://ghcr.io/o/pcos:latest"},
         ]})
         s = status.system_status(osr, date, run=fake_run({"rpm-ostree": rpm}))
         self.assertEqual(s.name, "RudramOS")
         self.assertEqual(s.build_date, "20261018")
-        self.assertEqual(s.booted_image, "pcos:latest")
-        self.assertEqual(s.staged_image, "pcos-nvidia:latest")
+        self.assertEqual(s.booted_image, "pcos:latest")  # a PC not switched over to the new name yet
+        self.assertEqual(s.staged_image, "rudramos-nvidia:latest")
 
     def test_system_without_rpm_ostree(self):
         s = status.system_status(os.path.join(self.dir.name, "no"), os.path.join(self.dir.name, "no2"), run=fake_run({}))

@@ -1,0 +1,8 @@
+[Unit]
+Description=Move updates to the RudramOS image name (after the rename from pcos)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/pcos/pcos-image-rename

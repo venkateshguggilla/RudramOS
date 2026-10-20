@@ -12,7 +12,7 @@ import re
 import subprocess
 from dataclasses import dataclass, field
 
-VARIANTS = {"none": "pcos", "nvidia": "pcos-nvidia", "nvidia-legacy": "pcos-nvidia-legacy"}
+VARIANTS = {"none": "rudramos", "nvidia": "rudramos-nvidia", "nvidia-legacy": "rudramos-nvidia-legacy"}
 
 
 @dataclass
@@ -138,7 +138,7 @@ def graphics_status(
     variant_file: str = "/usr/share/pcos/gpu-variant",
     run=subprocess.run,
 ) -> GraphicsStatus:
-    installed = VARIANTS.get(_read(variant_file, "none"), "pcos")
+    installed = VARIANTS.get(_read(variant_file, "none"), "rudramos")
     try:
         out = run([detect], capture_output=True, text=True, timeout=20).stdout.strip()
         wanted, gpu_name, reason = (out.split("\t") + ["", "", ""])[:3]
@@ -224,7 +224,7 @@ def usb_status(
 
 
 def _image_name(ref: str) -> str:
-    # "ostree-image-signed:docker://ghcr.io/owner/pcos-nvidia:latest" -> "pcos-nvidia:latest"
+    # "ostree-image-signed:docker://ghcr.io/owner/rudramos-nvidia:latest" -> "rudramos-nvidia:latest"
     return ref.rsplit("/", 1)[-1] if ref else ""
 
 

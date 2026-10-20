@@ -6,7 +6,9 @@ set -ouex pipefail
 GPU="${GPU:-none}"
 REGISTRY="ghcr.io/venkateshguggilla"
 # All image variants: a PC may switch between them, so each must be signature-checked
-IMAGE_REPOS=("${REGISTRY}/pcos" "${REGISTRY}/pcos-nvidia" "${REGISTRY}/pcos-nvidia-legacy")
+# New names, and the names before the rename to RudramOS (still published during the switch-over)
+IMAGE_REPOS=("${REGISTRY}/rudramos" "${REGISTRY}/rudramos-nvidia" "${REGISTRY}/rudramos-nvidia-legacy"
+    "${REGISTRY}/pcos" "${REGISTRY}/pcos-nvidia" "${REGISTRY}/pcos-nvidia-legacy")
 SIGNING_PUBKEY="/etc/pki/containers/pcos.pub"
 
 ### System files
@@ -38,8 +40,10 @@ for font in /usr/share/grub/unicode.pf2 /usr/share/grub2/unicode.pf2; do
 done
 [[ -f "${GRUB_THEME}/unicode.pf2" ]] || { echo "ERROR: no GRUB unicode.pf2 font for the boot menu theme" >&2; exit 1; }
 (cd "${GRUB_THEME}" && find . -type f ! -name .stamp -print0 | sort -z | xargs -0 sha256sum | sha256sum >.stamp)
-chmod 0755 /usr/libexec/pcos/pcos-grub-theme
+chmod 0755 /usr/libexec/pcos/pcos-grub-theme /usr/libexec/pcos/pcos-image-rename
 systemctl enable pcos-grub-theme.service
+# After the rename from pcos: move installed PCs to the rudramos image names once those are available
+systemctl enable pcos-image-rename.timer
 
 ### Boot animation (Plymouth): Shiva's eyes and the trishul, with the disk password prompt.
 # Set before gpu.sh so an initramfs rebuilt there (nvidia-legacy) already has it.

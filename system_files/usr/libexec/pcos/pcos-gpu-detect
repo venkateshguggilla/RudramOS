@@ -2,12 +2,12 @@
 # Detects the graphics hardware and prints which RudramOS image variant it needs.
 #
 # Output (one line, tab-separated):  <variant>\t<gpu name>\t<reason>
-#   variant: pcos | pcos-nvidia | pcos-nvidia-legacy
+#   variant: rudramos | rudramos-nvidia | rudramos-nvidia-legacy
 #
 # NVIDIA chips are classified by PCI device ID, which NVIDIA assigns per chip generation:
-#   0x1E00 and up    Turing and newer (RTX 20/30/40/50, GTX 16)  -> open kernel modules (pcos-nvidia)
-#   0x1340 - 0x1DFF  Maxwell, Pascal, Volta (GTX 750 - GTX 10)   -> 580 LTS driver (pcos-nvidia-legacy)
-#   below 0x1340     Kepler and older                            -> no current driver; stays on nouveau (pcos)
+#   0x1E00 and up    Turing and newer (RTX 20/30/40/50, GTX 16)  -> open kernel modules (rudramos-nvidia)
+#   0x1340 - 0x1DFF  Maxwell, Pascal, Volta (GTX 750 - GTX 10)   -> 580 LTS driver (rudramos-nvidia-legacy)
+#   below 0x1340     Kepler and older                            -> no current driver; stays on nouveau (rudramos)
 #
 # For testing, PCOS_LSPCI_OUTPUT can hold `lspci -Dnnmm` style output instead of reading the hardware.
 
@@ -36,15 +36,15 @@ while IFS= read -r line; do
     [[ "${class}" =~ ^03(00|02|80)$ ]] || continue
 
     if [[ "${vendor}" != "10de" ]]; then
-        rank=1; variant="pcos"; reason="open driver included"
+        rank=1; variant="rudramos"; reason="open driver included"
     else
         id=$((16#${device}))
         if (( id >= 0x1E00 )); then
-            rank=3; variant="pcos-nvidia"; reason="NVIDIA Turing or newer"
+            rank=3; variant="rudramos-nvidia"; reason="NVIDIA Turing or newer"
         elif (( id >= 0x1340 )); then
-            rank=3; variant="pcos-nvidia-legacy"; reason="NVIDIA Maxwell/Pascal/Volta (580 LTS driver)"
+            rank=3; variant="rudramos-nvidia-legacy"; reason="NVIDIA Maxwell/Pascal/Volta (580 LTS driver)"
         else
-            rank=2; variant="pcos"; reason="NVIDIA Kepler or older: no supported proprietary driver, using nouveau"
+            rank=2; variant="rudramos"; reason="NVIDIA Kepler or older: no supported proprietary driver, using nouveau"
         fi
     fi
     # Prefer an NVIDIA GPU that needs a driver over integrated graphics
@@ -55,7 +55,7 @@ while IFS= read -r line; do
 done < <(lspci_output)
 
 if [[ -z "${best_line}" ]]; then
-    printf 'pcos\tno display controller found\tdefault\n'
+    printf 'rudramos\tno display controller found\tdefault\n'
 else
     printf '%s\n' "${best_line}"
 fi

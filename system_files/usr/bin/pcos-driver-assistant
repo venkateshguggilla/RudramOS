@@ -17,9 +17,9 @@ APP=(--app-name="RudramOS" --icon=video-display)
 
 current_variant() {
     case "$(cat /usr/share/pcos/gpu-variant 2>/dev/null)" in
-    nvidia) echo pcos-nvidia ;;
-    nvidia-legacy) echo pcos-nvidia-legacy ;;
-    *) echo pcos ;;
+    nvidia) echo rudramos-nvidia ;;
+    nvidia-legacy) echo rudramos-nvidia-legacy ;;
+    *) echo rudramos ;;
     esac
 }
 
@@ -57,11 +57,13 @@ esac
 
 [[ "${wanted}" == "${current}" ]] && exit 0
 # A switch to the right variant is already waiting for a restart
-[[ "$(staged_image)" == *"/${wanted}:"* ]] && exit 0
+staged=$(staged_image)
+# (under the new name, or the old pcos name while that is still the one that can be downloaded)
+[[ "${staged}" == *"/${wanted}:"* || "${staged}" == *"/pcos${wanted#rudramos}:"* ]] && exit 0
 # User chose "Don't ask again" for this exact GPU and variant
 grep -qxF "${wanted}"$'\t'"${gpu_name}" "${DISMISSED}" 2>/dev/null && exit 0
 
-if [[ "${wanted}" == "pcos" ]]; then
+if [[ "${wanted}" == "rudramos" ]]; then
     title="Graphics driver change recommended"
     body="This PC has ${gpu_name}. The NVIDIA driver installed now isn't needed. Switch to the standard driver?"
 else

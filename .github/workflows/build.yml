@@ -30,13 +30,18 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - image: pcos
+          # old_image: the name before the rename to RudramOS. Published too until every installed
+          # PC has moved to the new name (pcos-image-rename.service does that by itself).
+          - image: rudramos
+            old_image: pcos
             base_image: ghcr.io/ublue-os/bluefin
             gpu: none
-          - image: pcos-nvidia
+          - image: rudramos-nvidia
+            old_image: pcos-nvidia
             base_image: ghcr.io/ublue-os/bluefin-nvidia-open
             gpu: nvidia
-          - image: pcos-nvidia-legacy
+          - image: rudramos-nvidia-legacy
+            old_image: pcos-nvidia-legacy
             base_image: ghcr.io/ublue-os/bluefin
             gpu: nvidia-legacy
 
@@ -79,6 +84,7 @@ jobs:
           bash tests/test-privacy.sh
           bash tests/test-killswitch.sh
           bash tests/test-grub-theme.sh
+          bash tests/test-image-rename.sh
           python3 -m unittest discover -s tests -p "test_*.py" -v
 
       - name: Image Name
@@ -87,6 +93,7 @@ jobs:
           IMAGE_NAME="${{ matrix.image }}"
 
           echo "IMAGE_NAME=${IMAGE_NAME}" >> $GITHUB_ENV
+          echo "OLD_IMAGE_NAME=${{ matrix.old_image }}" >> $GITHUB_ENV
 
       - name: Default Tag
         id: gen-default-tag
@@ -100,6 +107,7 @@ jobs:
           # Lowercase the image uri https://github.com/macbre/push-to-ghcr/issues/12
           echo "IMAGE_REGISTRY=${IMAGE_REGISTRY,,}" >> ${GITHUB_ENV}
           echo "IMAGE_NAME=${IMAGE_NAME,,}" >> ${GITHUB_ENV}
+          echo "OLD_IMAGE_NAME=${OLD_IMAGE_NAME,,}" >> ${GITHUB_ENV}
 
       # This actually builds the container image
       - name: Build Image
@@ -167,11 +175,15 @@ jobs:
           set -euox pipefail
           for tag in ${ALIAS_TAGS}; do
             podman push --digestfile=/tmp/digestfile ${IMAGE_NAME}:${tag} ${IMAGE_REGISTRY}/${IMAGE_NAME}:${tag}
+            # Old name (before the rename), so PCs that haven't switched over yet still get updates
+            podman push --digestfile=/tmp/digestfile-old ${IMAGE_NAME}:${tag} ${IMAGE_REGISTRY}/${OLD_IMAGE_NAME}:${tag}
           done
 
           digest=$(< /tmp/digestfile)
+          old_digest=$(< /tmp/digestfile-old)
 
           echo "digest=${digest}" >> $GITHUB_OUTPUT
+          echo "old_digest=${old_digest}" >> $GITHUB_OUTPUT
 
       # This section is optional and only needs to be enabled if you plan on distributing
       # your project for others to consume. You will need to create a public and private key
@@ -191,11 +203,13 @@ jobs:
           COSIGN_EXPERIMENTAL: false
           COSIGN_PRIVATE_KEY: ${{ secrets.SIGNING_SECRET }}
           DIGEST: ${{ steps.push-image.outputs.digest }}
+          OLD_DIGEST: ${{ steps.push-image.outputs.old_digest }}
         run: |
           # https://github.com/containers/container-libs/issues/388
           # https://github.com/coreos/rpm-ostree/issues/5509
           # use old bundle format, so we can use newer cosign 3.X.X instead of 2.X.X
           cosign sign -y --new-bundle-format=false --use-signing-config=false --key env://COSIGN_PRIVATE_KEY ${IMAGE_REGISTRY}/${IMAGE_NAME}@${DIGEST}
+          cosign sign -y --new-bundle-format=false --use-signing-config=false --key env://COSIGN_PRIVATE_KEY ${IMAGE_REGISTRY}/${OLD_IMAGE_NAME}@${OLD_DIGEST}
 
       # RudramOS: fail the run if the published image doesn't verify against the
       # public key that ships inside the image (keys/cosign.pub)
@@ -203,6 +217,8 @@ jobs:
         if: github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
         env:
           DIGEST: ${{ steps.push-image.outputs.digest }}
+          OLD_DIGEST: ${{ steps.push-image.outputs.old_digest }}
         run: |
           cosign verify --key keys/cosign.pub --insecure-ignore-tlog=true ${IMAGE_REGISTRY}/${IMAGE_NAME}@${DIGEST}
+          cosign verify --key keys/cosign.pub --insecure-ignore-tlog=true ${IMAGE_REGISTRY}/${OLD_IMAGE_NAME}@${OLD_DIGEST}
 
