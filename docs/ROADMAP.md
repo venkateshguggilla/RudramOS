@@ -222,9 +222,9 @@ Repo: `C:\Venky\work\temp_monitor` (or `apps/temp-monitor`)
 - [ ] Windows: fan control through LibreHardwareMonitorLib (same UI)
 
 ### 9e: Notifications + history (M)
-- [ ] Background **monitor service** (user systemd unit): 1 s polling, SQLite with downsampling, retention setting
-- [ ] Overheat warning/critical notifications, cooldown, event log
-- [ ] Charts per component (5 m – 30 d), min/avg/max, time above hot, overlays, CSV export, Clear history
+- [x] 9e.1 Background **monitor service** (`temp-monitor-background.service`, user unit, globally enabled; `TempMonitor --monitor`): 1 s polling, SQLite (1 s samples 2 h, per-minute avg/min/max + events, retention 30 d setting), one instance per user; verified in WSL
+- [x] Overheat warning (30 s at "hot") / critical (+5 °C for 5 s) notifications via notify-send, stalled-fan alerts from the fan service, 10 min repeat limit, escalation at once, "back to normal" logged; event log; 12 tests; docs in temp-monitor `docs/MONITOR.md`
+- [ ] 9e.2 Charts per component (5 m – 30 d), min/avg/max, time above hot, overlays, event list, CSV export, Clear history
 
 **Done when:** on the RTX 3060 PC every fan header and GPU fan can be controlled individually; killing the daemon returns fans to BIOS control; a stress test (`stress-ng`) triggers the overheat notification; history survives a reboot.
 

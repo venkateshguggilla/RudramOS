@@ -11,13 +11,14 @@ ARG BASE_TAG="stable"
 # Temp Monitor (https://github.com/venkateshguggilla/temp-monitor), built from a pinned
 # commit so upstream changes only reach the OS when this ref is bumped. Unit tests must pass.
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS temp-monitor
-ARG TEMP_MONITOR_REF="a22018397e51923c34b517bcac6061e4134faa2c"
+ARG TEMP_MONITOR_REF="ac8b61777414c4a522de6cf4db54c954c5547d4d"
 WORKDIR /src
 RUN git init -q . \
     && git fetch -q --depth 1 https://github.com/venkateshguggilla/temp-monitor.git "${TEMP_MONITOR_REF}" \
     && git checkout -q FETCH_HEAD
 RUN dotnet test tests/TempMonitor.Core.Tests \
     && dotnet test tests/TempMonitor.Sensors.Linux.Tests \
+    && dotnet test tests/TempMonitor.History.Tests \
     && dotnet publish src/TempMonitor.Avalonia -f net8.0 -r linux-x64 -c Release \
        -p:PublishSingleFile=false -o /out/temp-monitor \
     && cp src/TempMonitor.Avalonia/Assets/logo.png /out/temp-monitor.png \

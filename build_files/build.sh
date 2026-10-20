@@ -176,6 +176,9 @@ install -Dm0644 /ctx/apps/temp-monitor-packaging/com.github.venkateshguggilla.te
     /usr/share/polkit-1/actions/com.github.venkateshguggilla.tempmonitor.policy
 systemctl enable temp-monitor-fans.service
 timeout 60 /usr/bin/temp-monitor fan --help >/dev/null
+# Background monitor (every user, while logged in): history + overheat / stalled-fan notifications
+install -Dm0644 /ctx/apps/temp-monitor-packaging/temp-monitor-background.service /usr/lib/systemd/user/temp-monitor-background.service
+systemctl --global enable temp-monitor-background.service
 
 ### Check the Control Center loads (imports GTK/Adw, no display needed)
 python3 -B -c 'import sys; sys.path.insert(0, "/usr/lib/pcos-control"); import pcos_control.app'
