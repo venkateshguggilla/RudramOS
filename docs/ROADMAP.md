@@ -195,7 +195,7 @@ Repo: `C:\Venky\work\temp_monitor` (or `apps/temp-monitor`)
 ### 9a: Refactor on Windows (S)
 - [x] Extract `ISensorProvider` from `SensorService`; `WindowsSensorProvider` = the current LibreHardwareMonitor code (projects `TempMonitor.Core` + `TempMonitor.Sensors.Windows`; WPF app builds on them; 15 Core unit tests)
 - [x] Keep `Reading` as the shared model; graph/history logic moved to `CardHistory` in Core
-- [ ] Add a `Fan` reading type (RPM, controllable, mode): moved to 9d with fan control
+- [x] Add a `Fan` reading type (RPM, controllable, mode): done in 9d.1
 
 ### 9b: Avalonia UI on Windows (M)
 - [x] Port `MainWindow` / `MetricCard` / `TrayIcon` from WPF to **Avalonia 11.3.22** (`TempMonitor.Avalonia`; Avalonia 12 needs the .NET 9/10 SDK compiler, so 11.3 for now); platform layer (`Platform.cs`) ready for a Linux provider
@@ -211,7 +211,8 @@ Repo: `C:\Venky\work\temp_monitor` (or `apps/temp-monitor`)
 - [ ] Real-hardware check on RudramOS: MacBook (coretemp, amdgpu, NVMe behind LUKS), RTX 3060 (NVML), GTX 1050 Ti (NVML 580)
 
 ### 9d: Fan control (L)
-- [ ] Root **fan daemon** (D-Bus + polkit): hwmon PWM, NVML, amdgpu fan curve, liquidctl
+- [x] 9d.1 **Fan readings** (read-only): `FanReading`/`FanReport` + `ISensorProvider.ReadFans()`; Linux hwmon (Super I/O, amdgpu/nouveau, applesmc RPM range + manual flag, ThinkPad, Dell) with PWM duty and mode, NVML fans (%, RPM on 535+, auto/manual); empty motherboard headers hidden; Windows via LibreHardwareMonitor (Super I/O + fan controllers); **Fans** card and `--print`; 6 tests on fake trees
+- [ ] 9d.2 Root **fan daemon** (D-Bus + polkit): hwmon PWM, NVML, amdgpu fan curve, liquidctl
 - [ ] Per-fan Auto / Fixed / Curve, rename, **Identify**, profiles
 - [ ] Safety: floor, critical → 100%, crash → BIOS auto, stall alert
 - [ ] Windows: fan control through LibreHardwareMonitorLib (same UI)
