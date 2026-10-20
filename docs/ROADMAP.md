@@ -206,7 +206,8 @@ Repo: `C:\Venky\work\temp_monitor` (or `apps/temp-monitor`)
 - [x] `TempMonitor.Sensors.Linux` (no root): coretemp / k10temp / zenpower + `/proc/stat` + cpufreq; amdgpu hwmon/sysfs (edge, junction, busy, VRAM, power, clock); NVML for NVIDIA; Intel iGPU noted; `/proc/meminfo` + jc42/spd5118; NVMe/drivetemp hwmon, `/proc/diskstats`, udev for USB, space traced through partitions and LUKS/device-mapper; GPU names from `pci.ids`
 - [x] Avalonia app targets `net8.0-windows` + `net8.0` (Linux): Unix-socket single instance, XDG autostart, `--print` for terminals; compressed single-file `linux-x64` publish (42 MB)
 - [x] 25 tests against fake `/sys` and `/proc` trees (MacBook, NVIDIA desktop, Ryzen); verified on real Linux (WSL Ubuntu 24.04) with `--print`
-- [ ] RudramOS image: load `drivetemp` (`/usr/lib/modules-load.d`), ship Temp Monitor (build in CI from the temp_monitor repo, install to `/usr/lib/temp-monitor` + `.desktop` + icon), AppIndicator top-bar icon check on GNOME
+- [x] RudramOS image: load `drivetemp` (`/usr/lib/modules-load.d`), ship Temp Monitor (built and unit-tested in a Containerfile stage from a pinned commit of github.com/venkateshguggilla/temp-monitor; installed to `/usr/lib/temp-monitor` + `temp-monitor` command + `.desktop` + icon; `--print` smoke test in the build)
+- [ ] AppIndicator top-bar icon check on GNOME (needs a real RudramOS session)
 - [ ] Real-hardware check on RudramOS: MacBook (coretemp, amdgpu, NVMe behind LUKS), RTX 3060 (NVML), GTX 1050 Ti (NVML 580)
 
 ### 9d: Fan control (L)
