@@ -1,0 +1,5 @@
+# RudramOS: Mission Center, a task manager: running apps and processes (with End task), and live
+# CPU, GPU, memory, disk and network use. Pinned to the dock (build_files/dock-favorites.py).
+[Flatpak Preinstall io.missioncenter.MissionCenter]
+Branch=stable
+IsRuntime=false

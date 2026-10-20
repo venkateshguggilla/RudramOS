@@ -42,6 +42,9 @@ done
 (cd "${GRUB_THEME}" && find . -type f ! -name .stamp -print0 | sort -z | xargs -0 sha256sum | sha256sum >.stamp)
 chmod 0755 /usr/libexec/pcos/pcos-grub-theme /usr/libexec/pcos/pcos-image-rename /usr/libexec/pcos/pcos-update /usr/libexec/pcos/pcos-app-store
 systemctl enable pcos-grub-theme.service
+# Dock: the base image's apps plus Mission Center (task manager: running apps and processes,
+# End task, CPU/GPU/memory/disk use). Preinstalled from Flathub like Bazaar.
+python3 /ctx/dock-favorites.py /etc/dconf/db/distro.d/zz8-rudramos-dock io.missioncenter.MissionCenter.desktop
 # After the rename from pcos: move installed PCs to the rudramos image names once those are available
 systemctl enable pcos-image-rename.timer
 
