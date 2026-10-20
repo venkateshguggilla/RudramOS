@@ -2,17 +2,34 @@
 # Installs the RudramOS boot menu theme into /boot/grub2, where GRUB can read it (bootc images
 # can't ship files in /boot). GRUB reads /boot/grub2/user.cfg on every boot; the block added there
 # only switches to the theme if its files are present, so GRUB falls back to its plain menu if
-# anything is missing. Turn the theme off with:
-#   sudo touch /etc/pcos/no-grub-theme && sudo systemctl start pcos-grub-theme
+# anything is missing.
+#
+# Usage: pcos-grub-theme [apply]   install or update the theme (pcos-grub-theme.service, at boot)
+#        pcos-grub-theme off       use GRUB's plain menu from now on (Control Center → System)
+#        pcos-grub-theme on        back to the RudramOS theme
 set -euo pipefail
 
 # Paths can be overridden for tests (tests/test-grub-theme.sh)
 SRC="${PCOS_GRUB_THEME_SRC:-/usr/share/pcos/grub/rudramos}"
 GRUB="${PCOS_GRUB_DIR:-/boot/grub2}"
+FLAG="${PCOS_NO_GRUB_THEME:-/etc/pcos/no-grub-theme}"
 DEST="${GRUB}/themes/rudramos"
 CFG="${GRUB}/user.cfg"
 BEGIN="### BEGIN RudramOS boot menu theme"
 END="### END RudramOS boot menu theme"
+
+case "${1:-apply}" in
+apply) ;;
+on) rm -f "${FLAG}" ;;
+off)
+    mkdir -p "$(dirname "${FLAG}")"
+    touch "${FLAG}"
+    ;;
+*)
+    echo "usage: $0 [apply|on|off]" >&2
+    exit 2
+    ;;
+esac
 
 [[ -d "${GRUB}" ]] || { echo "No ${GRUB}: nothing to do"; exit 0; }
 
@@ -29,7 +46,7 @@ remove_block() {
     return 0
 }
 
-if [[ -e "${PCOS_NO_GRUB_THEME:-/etc/pcos/no-grub-theme}" ]]; then
+if [[ -e "${FLAG}" ]]; then
     remove_block
     rm -rf "${DEST}"
     echo "Boot menu theme removed"

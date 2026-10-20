@@ -223,6 +223,96 @@ def usb_status(
     return UsbStatus(mode=mode, pending=pending)
 
 
+@dataclass
+class Deployment:
+    image: str  # "rudramos:latest"
+    ref: str  # "ghcr.io/owner/rudramos:latest" (what updates come from)
+    digest: str  # "sha256:..."
+    version: str  # "44.20261020.0"
+    timestamp: int  # seconds since 1970, 0 = unknown
+
+
+@dataclass
+class UpdateStatus:
+    booted: Deployment | None
+    staged: Deployment | None  # downloaded, starts at the next restart
+    rollback: Deployment | None  # the previous version, kept for going back
+    remote_digest: str  # newest image online; "" = couldn't check
+    state: str  # ready | available | current | unknown
+    next_automatic: str  # when the automatic update runs next, "" if unknown
+
+
+def _deployment(dep: dict) -> Deployment:
+    ref = dep.get("container-image-reference", "")
+    return Deployment(
+        image=_image_name(ref),
+        ref=ref.split("docker://", 1)[-1] if "docker://" in ref else "",
+        digest=dep.get("container-image-reference-digest", "") or "",
+        version=str(dep.get("version", "") or ""),
+        timestamp=int(dep.get("timestamp", 0) or 0),
+    )
+
+
+def update_status(check_online: bool = True, known_remote: str = "", run=subprocess.run) -> UpdateStatus:
+    """Installed, downloaded and previous versions, and whether a newer image is online.
+
+    No root needed: rpm-ostree status is readable by everyone, and the check online only
+    reads the image's manifest digest (skopeo), it downloads nothing. Without check_online,
+    known_remote (the digest from an earlier check) is used instead.
+    """
+    booted = staged = rollback = None
+    try:
+        out = run(["rpm-ostree", "status", "--json"], capture_output=True, text=True, timeout=30).stdout
+        for dep in json.loads(out or "{}").get("deployments", []):
+            d = _deployment(dep)
+            if dep.get("booted"):
+                booted = d
+            elif dep.get("staged"):
+                staged = d
+            elif rollback is None:
+                rollback = d
+    except (OSError, subprocess.SubprocessError, ValueError):
+        pass
+
+    remote = known_remote
+    if check_online and booted and booted.ref:
+        remote = ""
+        target = staged.ref if staged and staged.ref else booted.ref
+        try:
+            res = run(["skopeo", "inspect", "--no-tags", "--retry-times", "2", "--format", "{{.Digest}}", f"docker://{target}"],
+                      capture_output=True, text=True, timeout=90)
+            if getattr(res, "returncode", 0) == 0 and res.stdout.strip().startswith("sha256:"):
+                remote = res.stdout.strip()
+        except (OSError, subprocess.SubprocessError):
+            pass
+
+    if staged and (not remote or staged.digest == remote):
+        state = "ready"
+    elif not remote or not booted:
+        state = "unknown"
+    elif booted.digest == remote:
+        state = "current"
+    else:
+        state = "available"
+
+    next_automatic = ""
+    for timer in ("uupd.timer", "bootc-fetch-apply-updates.timer"):
+        try:
+            value = run(["systemctl", "show", timer, "-p", "NextElapseUSecRealtime", "--value"],
+                        capture_output=True, text=True, timeout=10).stdout.strip()
+        except (OSError, subprocess.SubprocessError):
+            continue
+        if value and value != "n/a":
+            next_automatic = value
+            break
+    return UpdateStatus(booted=booted, staged=staged, rollback=rollback, remote_digest=remote,
+                        state=state, next_automatic=next_automatic)
+
+
+def boot_menu_theme_on(flag: str = "/etc/pcos/no-grub-theme") -> bool:
+    return not os.path.exists(flag)
+
+
 def _image_name(ref: str) -> str:
     # "ostree-image-signed:docker://ghcr.io/owner/rudramos-nvidia:latest" -> "rudramos-nvidia:latest"
     return ref.rsplit("/", 1)[-1] if ref else ""

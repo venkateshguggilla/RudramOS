@@ -43,6 +43,15 @@ assert "and the theme files" bash -c "[ ! -e '${PCOS_GRUB_DIR}/themes/rudramos' 
 assert "but keeps the GRUB password line" grep -q '^GRUB2_PASSWORD=grub.pbkdf2' "${CFG}"
 assert "no /boot/grub2 at all: nothing to do" bash -c "PCOS_GRUB_DIR='${work}/missing' bash '${TOOL}'"
 
+# Control Center switch: off / on
+rm -f "${PCOS_NO_GRUB_THEME}"
+bash "${TOOL}" >/dev/null
+bash "${TOOL}" off >/dev/null
+assert "off: flag set and theme removed" bash -c "[ -e '${PCOS_NO_GRUB_THEME}' ] && ! grep -q 'RudramOS boot menu theme' '${CFG}'"
+bash "${TOOL}" on >/dev/null
+assert "on: flag cleared and theme back" bash -c "[ ! -e '${PCOS_NO_GRUB_THEME}' ] && grep -q '^### BEGIN RudramOS boot menu theme$' '${CFG}'"
+assert "unknown word refused" bash -c "bash '${TOOL}' maybe; [ \$? = 2 ]"
+
 echo
 if (( failures > 0 )); then echo "${failures} test(s) failed"; exit 1; fi
 echo "all tests passed"

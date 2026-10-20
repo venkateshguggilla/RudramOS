@@ -281,7 +281,10 @@ Repo: `C:\Venky\work\pc_cleaner` (or `apps/pc-cleaner`)
   - [ ] Sharper art: a higher-resolution source of the artwork would make the wallpaper crisp at 4K (re-run the tools)
   - [ ] Login screen background (GNOME draws it plain; needs a gnome-shell theme override)
 - [ ] GNOME defaults (dock, apps)
-- [ ] Control Center **Updates** page (version, update now, rollback)
+- [x] Control Center **Updates** page: up to date / available / ready (checked online without a password: manifest digest vs. the running image), **Update now** (pcos-update, polkit `org.pcos.update`, password kept for a few minutes), **Restart**, **Roll back** with confirmation, next automatic update; tests
+- [x] **Buttons instead of commands**: app approval on/off, boot menu theme switch (`org.pcos.boot-menu`), **Restart into BIOS / UEFI settings**; README lists every page
+- [ ] Still a terminal (typing secrets / key touch): disk unlock setup (passphrase), security key registration and test, plus the "Show" lists (approved programs, USB devices). Next: in-app password and key-touch dialogs, and in-app lists
+- [ ] Check on a real RudramOS session (VM): every page, Update now → Restart, Roll back
 - [ ] User guide (`docs/USER_GUIDE.md`): keys, recovery, USB prompts, extensions, phone
 
 **Done when:** a non-technical person can install RudramOS from USB and finish setup without help.

@@ -1,14 +1,15 @@
 """RudramOS Control Center: one place for the RudramOS security and system settings.
 
-Status is read without root (status.py). Changes go through the existing tools:
-steps that need typing or a security-key touch open in a terminal (pcos-terminal-run),
-and the graphics driver switch runs through pkexec with its polkit action.
+Status is read without root (status.py). Changes are buttons that run the RudramOS tools
+through pkexec (admin approval with the system's own prompt). Only steps where you type a
+secret or touch a security key open a terminal (pcos-terminal-run).
 """
 
 from __future__ import annotations
 
 import sys
 import threading
+import time
 
 import gi
 
@@ -50,6 +51,13 @@ SHARING_LABELS = {
     "ssh": ("Remote login (SSH)", "Also starts the SSH server"),
 }
 GPU_SWITCH = "/usr/libexec/pcos/pcos-gpu-switch"
+UPDATE = "/usr/libexec/pcos/pcos-update"
+GRUB_THEME = "/usr/libexec/pcos/pcos-grub-theme"
+ONLINE_CHECK_EVERY = 600  # seconds between update checks while the window is open
+
+
+def when(ts: int) -> str:
+    return time.strftime("%-d %b %Y, %H:%M", time.localtime(ts)) if ts else "unknown"
 
 
 def run_in_terminal(title: str, *cmd: str) -> None:
@@ -87,6 +95,7 @@ class Window(Adw.ApplicationWindow):
         self.pages: dict[str, Adw.PreferencesPage] = {}
         self.groups: dict[str, list[Adw.PreferencesGroup]] = {}
         for name, title, icon in (
+            ("updates", "Updates", "software-update-available-symbolic"),
             ("security", "Security", "security-high-symbolic"),
             ("apps", "Apps", "application-x-executable-symbolic"),
             ("network", "Network", "network-wireless-symbolic"),
@@ -115,17 +124,31 @@ class Window(Adw.ApplicationWindow):
         # Refresh when the window comes back into focus, e.g. after a terminal step finishes
         self.connect("notify::is-active", lambda *_: self.refresh() if self.is_active() else None)
         self._loading = False
+        self._updating = False  # an update is downloading
+        self._remote_digest = ""  # newest image online, from the last check
+        self._checked_at = 0.0  # time.monotonic() of the last check online (0 = never)
+        self._checked_clock = ""  # the same, as a time of day for people
+        self._last_updates: status.UpdateStatus | None = None
         self.refresh()
 
     # ---- data loading (in a thread: rpm-ostree and detection can take a moment) ----
 
-    def refresh(self) -> None:
+    def refresh(self, check_online: bool = False) -> None:
         if self._loading:
             return
         self._loading = True
+        # Check online when asked, and otherwise at most every 10 minutes
+        online = check_online or not self._checked_at or time.monotonic() - self._checked_at > ONLINE_CHECK_EVERY
 
         def load():
+            updates = status.update_status(check_online=online, known_remote=self._remote_digest)
+            if online:
+                self._remote_digest = updates.remote_digest
+                self._checked_at = time.monotonic()
+                self._checked_clock = time.strftime("%H:%M")
             data = {
+                "updates": updates,
+                "boot_menu": status.boot_menu_theme_on(),
                 "admin": status.admin_status(),
                 "apps": status.apps_status(),
                 "network": status.network_status(),
@@ -147,6 +170,8 @@ class Window(Adw.ApplicationWindow):
         self.groups[page] = groups
 
     def _apply(self, data) -> bool:
+        self._last_updates = data["updates"]
+        self._set_groups("updates", self._updates(data["updates"]))
         self._set_groups("security", self._security(data["admin"]))
         self._set_groups("apps", self._apps(data["apps"]))
         self._set_groups("network", self._network(data["network"]))
@@ -154,11 +179,57 @@ class Window(Adw.ApplicationWindow):
         self._set_groups("privacy", self._privacy(data["privacy"]))
         self._set_groups("disk", self._disk(data["disk"]))
         self._set_groups("graphics", self._graphics(data["graphics"]))
-        self._set_groups("system", self._system(data["system"]))
+        self._set_groups("system", self._system(data["system"], data["boot_menu"]))
         self._loading = False
         return GLib.SOURCE_REMOVE
 
     # ---- pages ----
+
+    def _updates(self, u: status.UpdateStatus) -> list[Adw.PreferencesGroup]:
+        if self._updating:
+            state = Adw.ActionRow(title="Downloading the update…",
+                                  subtitle="You can keep working. This usually takes a few minutes.")
+            state.add_suffix(Gtk.Spinner(spinning=True, valign=Gtk.Align.CENTER))
+        elif u.state == "ready":
+            version = f"RudramOS {u.staged.version}" if u.staged and u.staged.version else "The update"
+            state = button_row("Update ready", f"{version} is downloaded. Restart to start using it.",
+                               "Restart", self._reboot, suggested=True)
+        elif u.state == "available":
+            state = button_row("Update available",
+                               "A newer RudramOS is ready to download. Your files, apps and settings stay as they are.",
+                               "Update now", self._update_now, suggested=True)
+        elif u.state == "current":
+            state = info_row("RudramOS is up to date", f"Checked at {self._checked_clock}." if self._checked_clock else "")
+        else:
+            state = info_row("Couldn't check for updates",
+                             "No internet connection, or the update server can't be reached right now.")
+        check = button_row("Check for updates", "", "Check now", lambda: self.refresh(check_online=True),
+                           sensitive=not self._updating)
+
+        b = u.booted
+        this_pc = [
+            info_row("Version", b.version if b and b.version else "unknown"),
+            info_row("Installed", when(b.timestamp) if b else "unknown"),
+            info_row("Image", b.image if b else "unknown"),
+            info_row("Automatic updates",
+                     "On: updates download in the background and start after a restart."
+                     + (f" Next: {u.next_automatic}." if u.next_automatic else "")),
+        ]
+
+        if u.rollback:
+            back: list[Gtk.Widget] = [button_row(
+                "Go back to the previous version",
+                f"{u.rollback.version or u.rollback.image}, installed {when(u.rollback.timestamp)}. "
+                "Use this if something stopped working after an update.",
+                "Roll back…", lambda r=u.rollback: self._confirm_rollback(r))]
+        else:
+            back = [info_row("Previous version", "None kept yet. After the next update, the version before it is kept here.")]
+
+        return [
+            group("Software update", "", [state, check]),
+            group("This PC", "", this_pc),
+            group("If something goes wrong", "The previous version is always kept, so going back is safe.", back),
+        ]
 
     def _security(self, s: status.AdminStatus) -> list[Adw.PreferencesGroup]:
         me = GLib.get_user_name()
@@ -203,10 +274,13 @@ class Window(Adw.ApplicationWindow):
         ]
         if s.approval_on is False:
             approval.append(button_row("Turn app approval on", "Recommended.", "Turn on",
-                                       lambda: run_in_terminal("Turn on app approval", "sudo", "pcos-app-guard", "on"), suggested=True))
+                                       lambda: self._privileged([APP_GUARD, "on"], "App approval is on."), suggested=True))
         elif s.approval_on:
             approval.append(button_row("Turn app approval off", "Downloaded programs would run without approval.", "Turn off",
-                                       lambda: run_in_terminal("Turn off app approval", "sudo", "pcos-app-guard", "off")))
+                                       lambda: self._confirm("Turn app approval off?",
+                                                             "Programs from Downloads, the Desktop and USB drives would run without asking.",
+                                                             "Turn off", lambda: self._privileged([APP_GUARD, "off"], "App approval is off."),
+                                                             destructive=True)))
 
         entry = Adw.EntryRow(title="addons.mozilla.org link of an extension")
         entry.set_show_apply_button(True)
@@ -388,22 +462,26 @@ class Window(Adw.ApplicationWindow):
                                    "Install", lambda: self._switch_driver(s.wanted), suggested=True))
         return [group("Graphics driver", "RudramOS picks the driver from the graphics card it finds.", rows)]
 
-    def _system(self, s: status.SystemStatus) -> list[Adw.PreferencesGroup]:
+    def _system(self, s: status.SystemStatus, boot_menu_on: bool) -> list[Adw.PreferencesGroup]:
         rows = [
             info_row("System", s.name),
             info_row("Build date", s.build_date or "unknown"),
             info_row("Running image", s.booted_image or "unknown"),
         ]
-        if s.staged_image:
-            rows.append(button_row("Update ready", f"{s.staged_image} is installed and starts after a restart.",
-                                   "Restart", self._reboot, suggested=True))
-        actions = [
-            button_row("Check for updates", "Updates also install automatically in the background.",
-                       "Check", lambda: run_in_terminal("Check for updates", "sudo", "bootc", "upgrade")),
-            button_row("Roll back", "Go back to the previous version at the next restart.",
-                       "Roll back", lambda: run_in_terminal("Roll back", "sudo", "bootc", "rollback")),
+        boot_menu = Adw.SwitchRow(
+            title="RudramOS boot menu",
+            subtitle="The trishul art in the boot menu (shown after a failed start, or while holding Shift). Off: the plain menu.",
+            active=boot_menu_on)
+        boot_menu.connect("notify::active", lambda r, _p: self._privileged(
+            [GRUB_THEME, "on" if r.get_active() else "off"],
+            "Boot menu: RudramOS theme." if r.get_active() else "Boot menu: plain."))
+        start_up = [
+            boot_menu,
+            button_row("Restart into BIOS / UEFI settings",
+                       "For Secure Boot, TPM and start-up order. Save your work first.",
+                       "Restart…", self._confirm_firmware_restart),
         ]
-        return [group("RudramOS", "", rows), group("Updates", "", actions)]
+        return [group("RudramOS", "Updates are on the Updates page.", rows), group("Start-up", "", start_up)]
 
     # ---- actions ----
 
@@ -432,8 +510,12 @@ class Window(Adw.ApplicationWindow):
 
         proc.wait_check_async(None, done)
 
-    def _privileged(self, argv: list[str], ok_text: str) -> None:
-        """Runs a RudramOS tool through pkexec (admin approval), then refreshes."""
+    def _privileged(self, argv: list[str], ok_text: str, ok_button: str | None = None, ok_callback=None,
+                    finished=None, check_online: bool = False) -> None:
+        """Runs a RudramOS tool through pkexec (admin approval), then refreshes.
+
+        finished(ok) runs before the refresh, whatever the outcome.
+        """
         proc = Gio.Subprocess.new(["pkexec", *argv], Gio.SubprocessFlags.STDERR_PIPE)
 
         def done(p, result):
@@ -442,13 +524,63 @@ class Window(Adw.ApplicationWindow):
                 ok = p.get_successful()
             except GLib.Error as e:
                 ok, err = False, e.message
+            if finished:
+                finished(ok)
             if ok:
-                self._toast(ok_text)
+                self._toast(ok_text, ok_button, ok_callback)
             elif p.get_exit_status() not in (126, 127):  # 126/127: approval cancelled
                 self._toast((err or "Something went wrong.").strip().splitlines()[-1])
-            self.refresh()
+            self.refresh(check_online=check_online)
 
         proc.communicate_utf8_async(None, None, done)
+
+    def _update_now(self) -> None:
+        self._updating = True
+        if self._last_updates:  # show the spinner at once
+            self._set_groups("updates", self._updates(self._last_updates))
+
+        def finished(ok: bool) -> None:
+            self._updating = False
+
+        self._privileged([UPDATE, "upgrade"], "Update downloaded. Restart to start using it.",
+                         "Restart", self._reboot, finished=finished, check_online=True)
+
+    def _confirm(self, heading: str, body: str, action: str, callback, destructive: bool = False) -> None:
+        dialog = Adw.AlertDialog(heading=heading, body=body)
+        dialog.add_response("cancel", "Cancel")
+        dialog.add_response("go", action)
+        dialog.set_response_appearance("go", Adw.ResponseAppearance.DESTRUCTIVE if destructive else Adw.ResponseAppearance.SUGGESTED)
+        dialog.set_default_response("cancel")
+        dialog.connect("response", lambda _d, r: callback() if r == "go" else None)
+        dialog.present(self)
+
+    def _confirm_rollback(self, previous: status.Deployment) -> None:
+        self._confirm(
+            "Go back to the previous version?",
+            f"RudramOS {previous.version or previous.image} will start after the next restart. "
+            "The current version isn't deleted: the next update brings you forward again.",
+            "Roll back",
+            lambda: self._privileged([UPDATE, "rollback"], "Done. Restart to use the previous version.",
+                                     "Restart", self._reboot),
+            destructive=True)
+
+    def _confirm_firmware_restart(self) -> None:
+        def restart():
+            proc = Gio.Subprocess.new(["systemctl", "reboot", "--firmware-setup"], Gio.SubprocessFlags.STDERR_PIPE)
+
+            def done(p, result):
+                try:
+                    p.communicate_utf8_finish(result)
+                except GLib.Error:
+                    pass
+                if not p.get_successful():
+                    self._toast("This PC can't restart straight into its settings. Restart and press F2, Del or Esc while it starts.")
+
+            proc.communicate_utf8_async(None, None, done)
+
+        self._confirm("Restart into BIOS / UEFI settings?",
+                      "The PC restarts now and opens its firmware settings. Unsaved work will be lost.",
+                      "Restart", restart)
 
     def _approve_extension(self, link: str) -> None:
         if link:

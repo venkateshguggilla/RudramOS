@@ -184,3 +184,67 @@ class StatusTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def update_run(deployments, digest=None, timer="Wed 2026-10-21 04:00:00 IST"):
+    """fake run for update_status: rpm-ostree deployments, skopeo digest (None = offline), timer."""
+    outputs = {"rpm-ostree": json.dumps({"deployments": deployments}), "systemctl": timer}
+    if digest is not None:
+        outputs["skopeo"] = digest + "\n"
+    return fake_run(outputs)
+
+
+def dep(digest, booted=False, staged=False, version="44.20261020.0", ts=1792500000, name="rudramos"):
+    return {"booted": booted, "staged": staged, "version": version, "timestamp": ts,
+            "container-image-reference": f"ostree-image-signed:docker://ghcr.io/o/{name}:latest",
+            "container-image-reference-digest": digest}
+
+
+class UpdateStatusTests(unittest.TestCase):
+    def test_up_to_date(self):
+        s = status.update_status(run=update_run([dep("sha256:aaa", booted=True), dep("sha256:old", version="44.20261019.0")], "sha256:aaa"))
+        self.assertEqual(s.state, "current")
+        self.assertEqual(s.booted.version, "44.20261020.0")
+        self.assertEqual(s.booted.ref, "ghcr.io/o/rudramos:latest")
+        self.assertEqual(s.rollback.version, "44.20261019.0")
+        self.assertIsNone(s.staged)
+        self.assertEqual(s.next_automatic, "Wed 2026-10-21 04:00:00 IST")
+
+    def test_newer_image_online(self):
+        s = status.update_status(run=update_run([dep("sha256:aaa", booted=True)], "sha256:bbb"))
+        self.assertEqual(s.state, "available")
+        self.assertEqual(s.remote_digest, "sha256:bbb")
+
+    def test_downloaded_and_waiting_for_restart(self):
+        s = status.update_status(run=update_run([dep("sha256:bbb", staged=True), dep("sha256:aaa", booted=True)], "sha256:bbb"))
+        self.assertEqual(s.state, "ready")
+        self.assertEqual(s.staged.digest, "sha256:bbb")
+        self.assertIsNone(s.rollback)  # the staged one isn't "previous"
+
+    def test_even_newer_than_the_downloaded_update(self):
+        s = status.update_status(run=update_run([dep("sha256:bbb", staged=True), dep("sha256:aaa", booted=True)], "sha256:ccc"))
+        self.assertEqual(s.state, "available")
+
+    def test_offline_is_unknown_but_a_downloaded_update_still_shows(self):
+        offline = status.update_status(run=update_run([dep("sha256:aaa", booted=True)], digest=None))
+        self.assertEqual(offline.state, "unknown")
+        ready = status.update_status(run=update_run([dep("sha256:bbb", staged=True), dep("sha256:aaa", booted=True)], digest=None))
+        self.assertEqual(ready.state, "ready")
+
+    def test_not_checking_online_does_not_call_skopeo(self):
+        def run(cmd, **kw):
+            self.assertNotEqual(os.path.basename(cmd[0]), "skopeo")
+            return update_run([dep("sha256:aaa", booted=True)])(cmd, **kw)
+        self.assertEqual(status.update_status(check_online=False, run=run).state, "unknown")
+
+    def test_boot_menu_theme_flag(self):
+        d = tempfile.mkdtemp()
+        flag = os.path.join(d, "no-grub-theme")
+        self.assertTrue(status.boot_menu_theme_on(flag))
+        open(flag, "w").close()
+        self.assertFalse(status.boot_menu_theme_on(flag))
+
+    def test_earlier_online_result_is_reused_without_checking_again(self):
+        s = status.update_status(check_online=False, known_remote="sha256:bbb",
+                                 run=update_run([dep("sha256:aaa", booted=True)]))
+        self.assertEqual(s.state, "available")

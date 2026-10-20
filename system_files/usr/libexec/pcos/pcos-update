@@ -1,0 +1,40 @@
+#!/bin/bash
+# Privileged part of the Control Center's Updates page. Run through pkexec (polkit action
+# org.pcos.update): admin password, remembered for a few minutes.
+#
+# Usage: pcos-update upgrade    download the newest signed RudramOS; it starts at the next restart
+#        pcos-update rollback   go back to the previous version at the next restart
+#
+# The last line printed on failure is shown to the user, so it's written for people.
+# Exit codes: 0 ok, 2 bad use, 3 failed
+set -uo pipefail
+
+if [[ "${EUID}" -ne 0 && -z "${PCOS_TEST:-}" ]]; then
+    echo "must run as root (use pkexec)" >&2
+    exit 2
+fi
+
+case "${1:-}" in
+upgrade)
+    if ! out=$(bootc upgrade --quiet 2>&1); then
+        echo "${out}" >&2
+        if grep -qi "lock" <<<"${out}"; then
+            echo "An update is already being installed in the background. Try again in a few minutes." >&2
+        else
+            echo "The update couldn't be downloaded. Check the internet connection and try again." >&2
+        fi
+        exit 3
+    fi
+    ;;
+rollback)
+    if ! out=$(bootc rollback 2>&1); then
+        echo "${out}" >&2
+        echo "Couldn't switch back to the previous version." >&2
+        exit 3
+    fi
+    ;;
+*)
+    echo "usage: $0 upgrade|rollback" >&2
+    exit 2
+    ;;
+esac

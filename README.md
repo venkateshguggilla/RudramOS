@@ -80,7 +80,21 @@ sudo bootc switch --enforce-container-sigpolicy ghcr.io/venkateshguggilla/rudram
 One-time step after the first build with the new names: on GitHub, open each new package (`rudramos`, `rudramos-nvidia`, `rudramos-nvidia-legacy`) → Package settings → **Change visibility → Public**. New packages start private, and until they're public, installed PCs stay on the old names.
 
 ## RudramOS Control Center
-Open **RudramOS Control Center** from the app grid (or run `pcos-control`). It shows and changes admin protection, disk encryption, the graphics driver and updates in one place. Steps that need your password or a security-key touch open in a terminal window.
+Open **RudramOS Control Center** from the app grid (or run `pcos-control`). Everyday tasks are buttons; changes ask for your admin password in the usual system prompt. No terminal needed.
+
+| Page | What you can do |
+|---|---|
+| **Updates** | See whether RudramOS is up to date (checked without a password), **Update now**, **Restart** to finish, **Roll back** to the previous version, see when the next automatic update runs |
+| Security | Admin protection (Standard / Strong), register and test security keys |
+| Apps | Approve a downloaded program, turn app approval on or off, approve or remove browser extensions |
+| Network | Mark a network Home or Public, turn sharing on or off |
+| USB | Approve waiting devices, choose the USB protection mode |
+| Privacy | Presets, DNS, tracker blocking, VPN kill switch |
+| Disk | Recovery key, unlock with TPM / TPM + PIN / security key |
+| Graphics | Install the right graphics driver |
+| System | Boot menu theme on or off, **Restart into BIOS / UEFI settings** |
+
+Only steps where you type a secret (the disk passphrase) or touch a security key still open a small terminal window.
 
 ## Admin approval: Standard or Strong
 Every admin action (installing apps, system settings, `sudo`) asks for approval.
