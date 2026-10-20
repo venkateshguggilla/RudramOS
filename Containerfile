@@ -24,12 +24,24 @@ RUN dotnet test tests/TempMonitor.Core.Tests \
     && cp src/TempMonitor.Avalonia/Assets/logo.png /out/temp-monitor.png \
     && cp -r packaging/linux /out/temp-monitor-packaging
 
+# PC Cleaner (https://github.com/venkateshguggilla/pc-cleaner), a pinned commit. Python: fetched
+# here, tested and installed by build.sh with the image's own Python and Tk.
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS pc-cleaner
+ARG PC_CLEANER_REF="616584bd91776f525ac7e9a3f6e46886e5955059"
+WORKDIR /src
+RUN git init -q . \
+    && git fetch -q --depth 1 https://github.com/venkateshguggilla/pc-cleaner.git "${PC_CLEANER_REF}" \
+    && git checkout -q FETCH_HEAD \
+    && mkdir -p /out/pc-cleaner \
+    && cp -r pccleaner tests assets packaging /out/pc-cleaner/
+
 # Build scripts and system files are mounted at build time, not copied into the final image
 FROM scratch AS ctx
 COPY build_files /
 COPY system_files /system_files
 COPY keys /keys
 COPY --from=temp-monitor /out /apps
+COPY --from=pc-cleaner /out /apps
 
 FROM ${BASE_IMAGE}:${BASE_TAG}
 

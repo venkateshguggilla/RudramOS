@@ -238,14 +238,16 @@ Repo: `C:\Venky\work\pc_cleaner` (or `apps/pc-cleaner`)
 - [x] `pccleaner/platform` package (github.com/venkateshguggilla/pc-cleaner): `windows.py` = the 1.x behaviour (Task Scheduler, shortcuts, Recycle Bin, Explorer, title bar), `linux.py` placeholder; GUI/CLI/scheduler/settings/report/fsutil use it; registry imported only when used; catalog per OS. All 39 tests pass; the exe builds and runs unchanged
 
 ### 10b: Linux implementation (M)
-- [ ] `platform/linux.py`: `/proc`, SIGTERM→SIGKILL, `gio trash`, FileManager1, `xdg-open`, systemd user timer, `.desktop` shortcut
-- [ ] XDG paths for settings and reports
-- [ ] Linux cleaner catalog (DESIGN §9.2), including Flatpak browser/app paths
-- [ ] Admin items through a `pcosd`/pkexec helper (journal vacuum, coredumps, Flatpak unused, old deployments keeping 1 rollback)
+- [x] `platform/linux.py`: `/proc` (own processes only), SIGTERM→SIGKILL, `gio trash`, FileManager1, `xdg-open`, systemd user timer (`Persistent=true`), `.desktop` entry
+- [x] XDG paths for settings (`~/.config/pccleaner`) and reports (`~/.local/state/pccleaner/logs`)
+- [x] Linux cleaner catalog (`cleaners/linux.py`): app / Flatpak / shader caches, thumbnails*, Trash*, recent files, shell history*, Firefox + Chromium family as normal installs **and Flatpaks** (bookmark-keeping Firefox cleanup reused), VLC, mpv, VS Code / VSCodium, developer caches (* unticked)
+- [x] Admin items through the `pccleaner-system` pkexec helper + polkit (logs older than 7 days, crash dumps, unused Flatpak runtimes); "(asks admin)", skipped by scheduled runs. Old OS deployments left to bootc (it keeps the rollback itself)
 - [ ] CleanerML rule support (BleachBit format)
-- [ ] Protected-path list for Linux; Large Files marks `~/.var` / dot-folders as *(app file)*
-- [ ] Linux test suite (temp folders, throwaway SQLite); registry tests Windows-only
-- [ ] RPM in the image
+- [x] Protected-path list for Linux (system folders, home and its main folders, `~/.config`, `~/.cache`, `~/.var`, `~/.ssh`...)
+- [ ] Large Files marks `~/.var` / dot-folders as *(app file)*
+- [x] Linux test suite (`tests/test_linux.py`, throwaway home); Windows-only tests skip on Linux. 20 Linux tests pass in WSL, 40 on Windows
+- [x] In the image (not an RPM): pinned commit fetched in a Containerfile stage; `/usr/lib/pc-cleaner` + ttkbootstrap pinned by hash, `pc-cleaner` command, app-menu entry, helper + polkit policy; tests, GUI import and `pc-cleaner list` run during the build
+- [ ] Real RudramOS check: GUI, Analyze / Run Cleaner, Firefox (Flatpak) history with bookmarks kept, approval prompt for System maintenance, schedule via the timer after a reboot
 
 **Done when:** `python -m pccleaner scan` / `clean` work on RudramOS; Firefox history cleaned with bookmarks kept; a scheduled clean runs from the systemd timer, and a missed run happens after the next boot.
 

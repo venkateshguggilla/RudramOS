@@ -233,6 +233,33 @@ timeout 60 /usr/bin/temp-monitor fan --help >/dev/null
 install -Dm0644 /ctx/apps/temp-monitor-packaging/temp-monitor-background.service /usr/lib/systemd/user/temp-monitor-background.service
 systemctl --global enable temp-monitor-background.service
 
+### PC Cleaner (docs/DESIGN.md §9.2), from the Containerfile's pc-cleaner stage
+# Python + Tk; ttkbootstrap is pinned by version and hash. The app never runs as root: the
+# "System maintenance" items go through pccleaner-system with admin approval (polkit).
+dnf5 install -y python3-tkinter python3-pillow-tk python3-pip
+PCC=/ctx/apps/pc-cleaner
+install -d /usr/lib/pc-cleaner
+cp -a "${PCC}/pccleaner" "${PCC}/assets" /usr/lib/pc-cleaner/
+cat >/tmp/pc-cleaner-requirements.txt <<'EOF'
+ttkbootstrap==2.2.3 --hash=sha256:00db93ee9d064d2d7bcac2158ca2d852f2844277d0da0a526163077ca9623417
+EOF
+python3 -m pip install --no-cache-dir --no-deps --require-hashes --target /usr/lib/pc-cleaner/vendor \
+    -r /tmp/pc-cleaner-requirements.txt
+install -Dm0755 "${PCC}/packaging/linux/pc-cleaner" /usr/bin/pc-cleaner
+install -Dm0755 "${PCC}/packaging/linux/pccleaner-system" /usr/libexec/pccleaner/pccleaner-system
+install -Dm0644 "${PCC}/packaging/linux/com.github.venkateshguggilla.pccleaner.policy" \
+    /usr/share/polkit-1/actions/com.github.venkateshguggilla.pccleaner.policy
+install -Dm0644 "${PCC}/packaging/linux/pc-cleaner.desktop" /usr/share/applications/pc-cleaner.desktop
+install -Dm0644 "${PCC}/assets/pccleaner.png" /usr/share/icons/hicolor/256x256/apps/pc-cleaner.png
+gtk-update-icon-cache -q -t -f /usr/share/icons/hicolor || true
+# Precompile: /usr is read-only on the running system
+python3 -m compileall -q /usr/lib/pc-cleaner
+# Its tests (the Linux ones run here; Windows-only ones skip) and a start-up check
+(cd "${PCC}" && PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -t .)
+PYTHONPATH=/usr/lib/pc-cleaner/vendor:/usr/lib/pc-cleaner python3 -B -c 'import pccleaner.gui'
+/usr/bin/pc-cleaner list >/dev/null
+if command -v desktop-file-validate >/dev/null; then desktop-file-validate /usr/share/applications/pc-cleaner.desktop; fi
+
 ### Check the Control Center loads (imports GTK/Adw, no display needed)
 python3 -B -c 'import sys; sys.path.insert(0, "/usr/lib/pcos-control"); import pcos_control.app'
 
