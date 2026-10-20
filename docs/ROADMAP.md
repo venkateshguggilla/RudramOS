@@ -216,7 +216,7 @@ Repo: `C:\Venky\work\temp_monitor` (or `apps/temp-monitor`)
 - [x] Per-fan Auto / Fixed / Curve (hottest of several sources, hysteresis), rename, **Identify**, profiles Auto (default: changes nothing) / Silent / Balanced / Performance / Custom
 - [x] Safety: floor, CPU/GPU critical → 100%, missing curve sensor → 100%, firmware state saved before the first write and restored on stop / crash (`ExecStopPost=--fan-restore`), stall alert, periodic re-assert; lowering a limit needs admin approval
 - [x] 17 tests on fake sysfs/NVML; verified in WSL as root (service, socket, refusal without polkit, clean SIGTERM)
-- [ ] 9d.3 **Fans card controls** in the app: profile picker, per-fan mode, curve editor, rename, Identify, stall/critical banners
+- [x] 9d.3 **Fans card controls** in the app: profile picker, per-fan Edit (name, Auto / Fixed / Curve, draggable curve graph with floor and current temperature, sources, hysteresis, Identify), Safety limits dialog (admin prompt when lowering), stall / error / critical messages; read-only without the service; checked on Windows against a stand-in service (dev builds, `TEMPMONITOR_FAKE_FANS=1`)
 - [ ] Real hardware: MacBook (applesmc), RTX 3060 (NVML + motherboard headers), GTX 1050 Ti (NVML 580); `systemctl kill -s KILL temp-monitor-fans` returns fans to BIOS
 - [ ] Later: amdgpu RX 7000 (`gpu_od/fan_ctrl`), liquidctl (AIOs, USB fan hubs)
 - [ ] Windows: fan control through LibreHardwareMonitorLib (same UI)

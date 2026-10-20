@@ -148,7 +148,7 @@ sudo pcos-privacy preset maximum
 ## Temp Monitor and fans
 **Temp Monitor** (app grid, or `temp-monitor`) shows live temperature and usage for the CPU, GPU, RAM and every drive, plus every fan's speed. `temp-monitor --print` prints the same in a terminal.
 
-Fans are left to the BIOS until you choose otherwise. To let RudramOS run them:
+Fans are left to the BIOS until you choose otherwise. In Temp Monitor's **Fans** card, pick a profile in the card's header, use **Edit** on a fan for its own fixed speed or curve (drag the points), or open **Safety limits…**. The same from a terminal:
 ```bash
 temp-monitor fan
 ```
