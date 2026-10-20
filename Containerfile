@@ -8,11 +8,26 @@
 ARG BASE_IMAGE="ghcr.io/ublue-os/bluefin"
 ARG BASE_TAG="stable"
 
+# Temp Monitor (https://github.com/venkateshguggilla/temp-monitor), built from a pinned
+# commit so upstream changes only reach the OS when this ref is bumped. Unit tests must pass.
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS temp-monitor
+ARG TEMP_MONITOR_REF="3aed5ea5ad45f31deabcd154ab9b6eea1a740305"
+WORKDIR /src
+RUN git init -q . \
+    && git fetch -q --depth 1 https://github.com/venkateshguggilla/temp-monitor.git "${TEMP_MONITOR_REF}" \
+    && git checkout -q FETCH_HEAD
+RUN dotnet test tests/TempMonitor.Core.Tests \
+    && dotnet test tests/TempMonitor.Sensors.Linux.Tests \
+    && dotnet publish src/TempMonitor.Avalonia -f net8.0 -r linux-x64 -c Release \
+       -p:PublishSingleFile=false -o /out/temp-monitor \
+    && cp src/TempMonitor.Avalonia/Assets/logo.png /out/temp-monitor.png
+
 # Build scripts and system files are mounted at build time, not copied into the final image
 FROM scratch AS ctx
 COPY build_files /
 COPY system_files /system_files
 COPY keys /keys
+COPY --from=temp-monitor /out /apps
 
 FROM ${BASE_IMAGE}:${BASE_TAG}
 

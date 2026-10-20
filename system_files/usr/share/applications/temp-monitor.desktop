@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Temp Monitor
+GenericName=Hardware Monitor
+Comment=Live temperature and usage of CPU, GPU, memory and drives
+Exec=temp-monitor
+Icon=temp-monitor
+Terminal=false
+Categories=System;Monitor;
+Keywords=temperature;sensor;fan;cpu;gpu;ssd;hardware;

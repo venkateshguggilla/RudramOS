@@ -157,6 +157,19 @@ PCOS_NO_RELOAD=1 /usr/bin/pcos-privacy preset balanced
 test -s /etc/systemd/resolved.conf.d/80-pcos-dns.conf
 dconf update
 
+### Temp Monitor (docs/DESIGN.md §9), built in the Containerfile's temp-monitor stage
+# Folder publish (not single-file), so nothing is unpacked into home folders at run time.
+cp -a /ctx/apps/temp-monitor /usr/lib/temp-monitor
+chmod 0755 /usr/lib/temp-monitor/TempMonitor
+ln -sf /usr/lib/temp-monitor/TempMonitor /usr/bin/temp-monitor
+install -Dm0644 /ctx/apps/temp-monitor.png /usr/share/icons/hicolor/512x512/apps/temp-monitor.png
+gtk-update-icon-cache -q -t -f /usr/share/icons/hicolor || true
+if command -v desktop-file-validate >/dev/null; then desktop-file-validate /usr/share/applications/temp-monitor.desktop; fi
+# drivetemp (SATA/USB drive temperatures) is loaded at boot by modules-load.d
+find /usr/lib/modules -name 'drivetemp.ko*' | grep -q . || { echo "ERROR: kernel has no drivetemp module" >&2; exit 1; }
+# Runs without a display and prints whatever sensors the build container can see
+timeout 120 /usr/bin/temp-monitor --print
+
 ### Check the Control Center loads (imports GTK/Adw, no display needed)
 python3 -B -c 'import sys; sys.path.insert(0, "/usr/lib/pcos-control"); import pcos_control.app'
 
