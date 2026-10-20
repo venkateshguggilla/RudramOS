@@ -235,7 +235,7 @@ Repo: `C:\Venky\work\temp_monitor` (or `apps/temp-monitor`)
 Repo: `C:\Venky\work\pc_cleaner` (or `apps/pc-cleaner`)
 
 ### 10a: Platform refactor (on Windows, S)
-- [ ] Move `winutil` / `regutil` / `scheduler` behind a `platform` package; the Windows behaviour stays identical; tests keep passing
+- [x] `pccleaner/platform` package (github.com/venkateshguggilla/pc-cleaner): `windows.py` = the 1.x behaviour (Task Scheduler, shortcuts, Recycle Bin, Explorer, title bar), `linux.py` placeholder; GUI/CLI/scheduler/settings/report/fsutil use it; registry imported only when used; catalog per OS. All 39 tests pass; the exe builds and runs unchanged
 
 ### 10b: Linux implementation (M)
 - [ ] `platform/linux.py`: `/proc`, SIGTERM→SIGKILL, `gio trash`, FileManager1, `xdg-open`, systemd user timer, `.desktop` shortcut
