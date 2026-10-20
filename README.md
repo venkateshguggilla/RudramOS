@@ -158,7 +158,7 @@ temp-monitor fan profile balanced
 - **Profiles:** *Auto* (BIOS, the default), *Silent*, *Balanced*, *Performance*, or *Custom* (each fan Auto, a fixed %, or its own temperature curve, e.g. `temp-monitor fan curve 1 40:30 60:50 80:100`).
 - **Always on:** fans never drop below 20 %. If the CPU reaches 95 °C or the GPU 90 °C, every fan goes to 100 %. A fan that stops while it should be spinning is flagged. Lowering these limits asks for your admin approval.
 - If the fan service stops or crashes, every fan goes back to BIOS control exactly as it was.
-- **Overheat alerts and history:** while you're logged in, a background monitor records temperatures, usage and fan speeds (1-second detail for 2 hours, per-minute for 30 days, kept on this PC only). It notifies you when something stays hot for 30 seconds, urgently when it goes 5 °C past that or a fan stops. Details: [temp-monitor docs/MONITOR.md](https://github.com/venkateshguggilla/temp-monitor/blob/main/docs/MONITOR.md).
+- **Overheat alerts and history:** while you're logged in, a background monitor records temperatures, usage and fan speeds (1-second detail for 2 hours, per-minute for 30 days, kept on this PC only). It notifies you when something stays hot for 30 seconds, urgently when it goes 5 °C past that or a fan stops. See it all in Temp Monitor → **History** (or click a card's graph): 5 minutes to 30 days, compare two series, past alerts, CSV export. Details: [temp-monitor docs/MONITOR.md](https://github.com/venkateshguggilla/temp-monitor/blob/main/docs/MONITOR.md).
 - Full guide: [temp-monitor docs/FANS.md](https://github.com/venkateshguggilla/temp-monitor/blob/main/docs/FANS.md).
 
 ## Disk encryption
