@@ -19,8 +19,31 @@ sed -i 's/^PRETTY_NAME=.*/PRETTY_NAME="RudramOS"/' /usr/lib/os-release
 mkdir -p /usr/share/pcos
 date -u +%Y%m%d > /usr/share/pcos/build-date
 
+### Boot animation (Plymouth): Shiva's eyes and the trishul, with the disk password prompt.
+# Set before gpu.sh so an initramfs rebuilt there (nvidia-legacy) already has it.
+dnf5 install -y plymouth-plugin-script
+plymouth-set-default-theme rudramos
+
 ### GPU drivers for this image variant
 /ctx/gpu.sh
+
+### Initramfs with the boot animation. nvidia-legacy already rebuilt it in gpu.sh; the other
+# variants come with the base image's, so rebuild it the same way, keeping any NVIDIA modules.
+KERNEL="$(rpm -q kernel --queryformat '%{VERSION}-%{RELEASE}.%{ARCH}\n' | tail -n1)"
+INITRAMFS="/lib/modules/${KERNEL}/initramfs.img"
+if [[ "${GPU}" != "nvidia-legacy" ]]; then
+    lsinitrd "${INITRAMFS}" >/tmp/initramfs-before.txt
+    export DRACUT_NO_XATTR=1
+    dracut --no-hostonly --kver "${KERNEL}" --reproducible --add ostree -f "${INITRAMFS}"
+    chmod 0600 "${INITRAMFS}"
+    if grep -qE "nvidia(-drm)?\.ko" /tmp/initramfs-before.txt; then
+        lsinitrd "${INITRAMFS}" >/tmp/initramfs-after.txt
+        grep -qE "nvidia(-drm)?\.ko" /tmp/initramfs-after.txt || { echo "ERROR: NVIDIA modules lost from initramfs" >&2; exit 1; }
+    fi
+fi
+lsinitrd "${INITRAMFS}" >/tmp/initramfs.txt
+grep -q "plymouth/themes/rudramos/frame-39.png" /tmp/initramfs.txt || { echo "ERROR: boot animation missing from initramfs" >&2; exit 1; }
+grep -q "plymouth/script.so" /tmp/initramfs.txt || { echo "ERROR: Plymouth script plugin missing from initramfs" >&2; exit 1; }
 
 ### Only accept RudramOS images signed with our cosign key
 # The public key must be committed as keys/cosign.pub. Fail the build without it,

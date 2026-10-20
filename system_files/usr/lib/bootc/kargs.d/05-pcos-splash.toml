@@ -1,0 +1,3 @@
+# RudramOS boot animation (Plymouth theme "rudramos"): graphical boot screen, kernel messages hidden.
+# Press Esc during boot to see the messages.
+kargs = ["rhgb", "quiet"]

@@ -1,0 +1,8 @@
+[Plymouth Theme]
+Name=RudramOS
+Description=RudramOS boot animation: Shiva's eyes and the trishul, with the disk password prompt
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/rudramos
+ScriptFile=/usr/share/plymouth/themes/rudramos/rudramos.script

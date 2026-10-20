@@ -1,0 +1,124 @@
+# RudramOS boot screen (Plymouth script plugin).
+# The animation loops at the GIF's own speed (70 ms a frame) centred on black; the disk password
+# prompt, questions and boot messages appear below it in the same colours.
+# Frames: frame-0.png ... frame-39.png (made from the animation by build tooling, edges feathered).
+
+Window.SetBackgroundTopColor(0, 0, 0);
+Window.SetBackgroundBottomColor(0, 0, 0);
+
+FRAMES = 40;
+TICKS_PER_FRAME = 3.5;   # the refresh function runs 50 times a second: 3.5 ticks = 70 ms
+
+for (i = 0; i < FRAMES; i++)
+    frame_image[i] = Image("frame-" + i + ".png");
+
+screen_x = Window.GetX();
+screen_y = Window.GetY();
+screen_w = Window.GetWidth();
+screen_h = Window.GetHeight();
+img_w = frame_image[0].GetWidth();
+img_h = frame_image[0].GetHeight();
+
+# About 60% of the screen height, at most 90% of its width, at most twice the original size
+scale = screen_h * 0.6 / img_h;
+if (img_w * scale > screen_w * 0.9)
+    scale = screen_w * 0.9 / img_w;
+if (scale > 2)
+    scale = 2;
+anim_w = Math.Int(img_w * scale);
+anim_h = Math.Int(img_h * scale);
+anim_x = screen_x + Math.Int((screen_w - anim_w) / 2);
+anim_y = screen_y + Math.Int((screen_h - anim_h) / 2 - screen_h * 0.06);
+
+fun frame (n) {
+    if (global.anim_w == global.img_w)
+        return global.frame_image[n];
+    return global.frame_image[n].Scale(global.anim_w, global.anim_h);
+}
+
+anim = Sprite(frame(0));
+anim.SetPosition(anim_x, anim_y, 0);
+ticks = 0;
+shown = 0;
+
+fun refresh_callback () {
+    global.ticks = global.ticks + 1;
+    n = Math.Int(global.ticks / global.TICKS_PER_FRAME) % global.FRAMES;
+    if (n != global.shown) {
+        global.anim.SetImage(frame(n));
+        global.shown = n;
+    }
+}
+Plymouth.SetRefreshFunction(refresh_callback);
+
+# ---------------------------------------------------------------- Password prompt and questions
+
+entry_image = Image("entry.png");
+dialog_y = anim_y + anim_h + 16;
+if (dialog_y + 80 > screen_y + screen_h - 70)
+    dialog_y = screen_y + screen_h - 150;
+
+dlg_prompt = Sprite();
+dlg_box = Sprite(entry_image);
+dlg_text = Sprite();
+dlg_box.SetPosition(screen_x + Math.Int((screen_w - entry_image.GetWidth()) / 2), dialog_y + 30, 10);
+dlg_prompt.SetOpacity(0);
+dlg_box.SetOpacity(0);
+dlg_text.SetOpacity(0);
+
+fun show_dialog (prompt, entry) {
+    if (prompt == "")
+        prompt = "Password";
+    p = Image.Text(prompt, 0.91, 0.93, 0.95);
+    global.dlg_prompt.SetImage(p);
+    global.dlg_prompt.SetPosition(global.screen_x + Math.Int((global.screen_w - p.GetWidth()) / 2), global.dialog_y, 11);
+
+    if (entry == "")
+        entry = " ";
+    t = Image.Text(entry, 1, 1, 1);
+    box_x = global.screen_x + Math.Int((global.screen_w - global.entry_image.GetWidth()) / 2);
+    global.dlg_text.SetImage(t);
+    global.dlg_text.SetPosition(box_x + 16, global.dialog_y + 30 + Math.Int((global.entry_image.GetHeight() - t.GetHeight()) / 2), 12);
+
+    global.dlg_prompt.SetOpacity(1);
+    global.dlg_box.SetOpacity(1);
+    global.dlg_text.SetOpacity(1);
+}
+
+fun hide_dialog () {
+    global.dlg_prompt.SetOpacity(0);
+    global.dlg_box.SetOpacity(0);
+    global.dlg_text.SetOpacity(0);
+}
+
+fun display_password_callback (prompt, bullets) {
+    dots = "";
+    for (i = 0; i < bullets && i < 30; i++)
+        dots = dots + "•";
+    show_dialog(prompt, dots);
+}
+
+fun display_question_callback (prompt, entry) {
+    show_dialog(prompt, entry);
+}
+
+fun display_normal_callback () {
+    hide_dialog();
+}
+
+Plymouth.SetDisplayPasswordFunction(display_password_callback);
+Plymouth.SetDisplayQuestionFunction(display_question_callback);
+Plymouth.SetDisplayNormalFunction(display_normal_callback);
+
+# ---------------------------------------------------------------- Boot messages
+
+message = Sprite();
+message.SetOpacity(0);
+
+fun message_callback (text) {
+    m = Image.Text(text, 0.6, 0.62, 0.66);
+    global.message.SetImage(m);
+    global.message.SetPosition(global.screen_x + Math.Int((global.screen_w - m.GetWidth()) / 2), global.screen_y + global.screen_h - 56, 10);
+    global.message.SetOpacity(1);
+}
+Plymouth.SetMessageFunction(message_callback);
