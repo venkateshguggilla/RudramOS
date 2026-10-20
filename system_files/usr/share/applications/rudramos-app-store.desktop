@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=App Store
+GenericName=Software
+Comment=Find, install and update apps (Bazaar, from Flathub)
+Exec=/usr/libexec/pcos/pcos-app-store
+Icon=system-software-install
+Terminal=false
+Categories=System;PackageManager;
+Keywords=apps;install;software;store;app store;bazaar;flatpak;flathub;programs;
+StartupNotify=true

@@ -52,6 +52,7 @@ SHARING_LABELS = {
 }
 GPU_SWITCH = "/usr/libexec/pcos/pcos-gpu-switch"
 UPDATE = "/usr/libexec/pcos/pcos-update"
+APP_STORE = "/usr/libexec/pcos/pcos-app-store"
 GRUB_THEME = "/usr/libexec/pcos/pcos-grub-theme"
 ONLINE_CHECK_EVERY = 600  # seconds between update checks while the window is open
 
@@ -266,7 +267,8 @@ class Window(Adw.ApplicationWindow):
     def _apps(self, s: status.AppsStatus) -> list[Adw.PreferencesGroup]:
         state = {True: "On", False: "Off", None: "Unknown"}[s.approval_on]
         approval = [
-            info_row("Installing apps", "Asks for admin approval (App Store and Flatpak)"),
+            button_row("App Store", "Find and install apps. Installing asks for admin approval.", "Open",
+                       lambda: Gio.Subprocess.new([APP_STORE], Gio.SubprocessFlags.NONE), suggested=True),
             info_row("Programs from Downloads, Desktop and USB drives", f"App approval: {state}. They run only after an admin approves them."),
             button_row("Approve a program", "Pick a downloaded program or AppImage you trust.", "Choose…", self._choose_program),
             button_row("Approved programs", "See or remove approvals.", "Show",

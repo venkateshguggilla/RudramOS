@@ -86,6 +86,7 @@ jobs:
           bash tests/test-grub-theme.sh
           bash tests/test-image-rename.sh
           bash tests/test-update.sh
+          bash tests/test-app-store.sh
           python3 -m unittest discover -s tests -p "test_*.py" -v
 
       - name: Image Name

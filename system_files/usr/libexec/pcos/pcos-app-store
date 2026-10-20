@@ -1,0 +1,30 @@
+#!/bin/bash
+# "App Store" in the app grid: opens Bazaar, Bluefin's app store. Bazaar isn't in the installer
+# image: Flathub downloads it on the first start with internet (flatpak-preinstall.service). If
+# that hasn't happened yet, this sets it up now (admin approval, like any app install) instead
+# of leaving the user with nothing.
+set -uo pipefail
+
+APP="io.github.kolunmi.Bazaar"
+NOTIFY=(notify-send --app-name="App Store" --icon=system-software-install)
+
+if flatpak info "${APP}" >/dev/null 2>&1; then
+    exec flatpak run "${APP}" "$@"
+fi
+
+"${NOTIFY[@]}" "Setting up the App Store" \
+    "Downloading it once from Flathub (a few hundred MB). This takes a few minutes; it opens by itself when ready."
+
+if out=$(flatpak install --system --noninteractive -y flathub "${APP}" 2>&1); then
+    exec flatpak run "${APP}" "$@"
+fi
+
+echo "${out}" >&2
+if grep -qiE "resolve|network|connect|timed out|could not" <<<"${out}"; then
+    "${NOTIFY[@]}" --urgency=critical "App Store not set up" \
+        "No internet connection. Connect to Wi-Fi or a cable, then open App Store again."
+else
+    "${NOTIFY[@]}" --urgency=critical "App Store not set up" \
+        "The download didn't finish (or the admin approval was cancelled). Open App Store to try again."
+fi
+exit 1

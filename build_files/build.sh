@@ -40,7 +40,7 @@ for font in /usr/share/grub/unicode.pf2 /usr/share/grub2/unicode.pf2; do
 done
 [[ -f "${GRUB_THEME}/unicode.pf2" ]] || { echo "ERROR: no GRUB unicode.pf2 font for the boot menu theme" >&2; exit 1; }
 (cd "${GRUB_THEME}" && find . -type f ! -name .stamp -print0 | sort -z | xargs -0 sha256sum | sha256sum >.stamp)
-chmod 0755 /usr/libexec/pcos/pcos-grub-theme /usr/libexec/pcos/pcos-image-rename /usr/libexec/pcos/pcos-update
+chmod 0755 /usr/libexec/pcos/pcos-grub-theme /usr/libexec/pcos/pcos-image-rename /usr/libexec/pcos/pcos-update /usr/libexec/pcos/pcos-app-store
 systemctl enable pcos-grub-theme.service
 # After the rename from pcos: move installed PCs to the rudramos image names once those are available
 systemctl enable pcos-image-rename.timer
@@ -215,7 +215,9 @@ chmod 0755 /usr/lib/temp-monitor/TempMonitor
 ln -sf /usr/lib/temp-monitor/TempMonitor /usr/bin/temp-monitor
 install -Dm0644 /ctx/apps/temp-monitor.png /usr/share/icons/hicolor/512x512/apps/temp-monitor.png
 gtk-update-icon-cache -q -t -f /usr/share/icons/hicolor || true
-if command -v desktop-file-validate >/dev/null; then desktop-file-validate /usr/share/applications/temp-monitor.desktop; fi
+if command -v desktop-file-validate >/dev/null; then desktop-file-validate /usr/share/applications/temp-monitor.desktop /usr/share/applications/rudramos-app-store.desktop; fi
+# "App Store" opens Bluefin's Bazaar: fail here if the base image stops shipping it
+grep -rqs "io.github.kolunmi.Bazaar" /usr/share/flatpak/preinstall.d/ || { echo "ERROR: base image no longer preinstalls Bazaar; update pcos-app-store" >&2; exit 1; }
 # drivetemp (SATA/USB drive temperatures) is loaded at boot by modules-load.d
 find /usr/lib/modules -name 'drivetemp.ko*' | grep -q . || { echo "ERROR: kernel has no drivetemp module" >&2; exit 1; }
 # Runs without a display and prints whatever sensors the build container can see
