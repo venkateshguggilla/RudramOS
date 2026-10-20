@@ -309,6 +309,46 @@ def update_status(check_online: bool = True, known_remote: str = "", run=subproc
                         state=state, next_automatic=next_automatic)
 
 
+@dataclass
+class Operation:
+    kind: str  # driver | update | rollback
+    started: float  # seconds since 1970
+
+
+def system_operation(proc: str = "/proc") -> Operation | None:
+    """A driver install, update or rollback that is running right now (from any app or a terminal).
+
+    Found from the process list, so it's seen even after the Control Center was closed and opened
+    again. Readable without root.
+    """
+    try:
+        btime = next(int(line.split()[1]) for line in _read(os.path.join(proc, "stat")).splitlines()
+                     if line.startswith("btime "))
+        ticks = os.sysconf("SC_CLK_TCK") if hasattr(os, "sysconf") else 100
+        entries = os.listdir(proc)
+    except (StopIteration, ValueError, OSError):
+        return None
+    found: list[tuple[int, Operation]] = []  # (priority, operation)
+    for entry in entries:
+        if not entry.isdigit():
+            continue
+        try:
+            with open(os.path.join(proc, entry, "cmdline"), "rb") as f:
+                argv = [a.decode("utf-8", "replace") for a in f.read().split(b"\0") if a]
+            stat = _read(os.path.join(proc, entry, "stat"))
+            start = btime + int(stat[stat.rindex(")") + 2:].split()[19]) / ticks
+        except (OSError, ValueError, IndexError):
+            continue
+        names = [os.path.basename(a) for a in argv[:3]]
+        if "pcos-gpu-switch" in names:
+            found.append((0, Operation("driver", start)))
+        elif "pcos-update" in names:
+            found.append((1, Operation("rollback" if "rollback" in argv else "update", start)))
+        elif argv and os.path.basename(argv[0]) == "bootc" and len(argv) > 1 and argv[1] in ("switch", "upgrade"):
+            found.append((2, Operation("driver" if argv[1] == "switch" else "update", start)))
+    return min(found, key=lambda f: (f[0], f[1].started))[1] if found else None
+
+
 def boot_menu_theme_on(flag: str = "/etc/pcos/no-grub-theme") -> bool:
     return not os.path.exists(flag)
 

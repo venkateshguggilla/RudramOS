@@ -248,3 +248,44 @@ class UpdateStatusTests(unittest.TestCase):
         s = status.update_status(check_online=False, known_remote="sha256:bbb",
                                  run=update_run([dep("sha256:aaa", booted=True)]))
         self.assertEqual(s.state, "available")
+
+
+class OperationTests(unittest.TestCase):
+    """Detecting a running driver install / update from a fake /proc."""
+
+    def setUp(self):
+        self.proc = tempfile.mkdtemp()
+        self.addCleanup(lambda: __import__("shutil").rmtree(self.proc, ignore_errors=True))
+        with open(os.path.join(self.proc, "stat"), "w") as f:
+            f.write("cpu  1 2 3\nbtime 1792500000\n")
+
+    def add(self, pid, argv, start_ticks=6000):
+        d = os.path.join(self.proc, str(pid))
+        os.makedirs(d)
+        with open(os.path.join(d, "cmdline"), "wb") as f:
+            f.write(b"\0".join(a.encode() for a in argv) + b"\0")
+        fields = ["S"] + ["0"] * 18 + [str(start_ticks)] + ["0"] * 10
+        with open(os.path.join(d, "stat"), "w") as f:
+            f.write(f"{pid} (some (name)) " + " ".join(fields))
+
+    def test_nothing_running(self):
+        self.add(1, ["/usr/lib/systemd/systemd"])
+        self.assertIsNone(status.system_operation(self.proc))
+
+    def test_driver_install_wins_over_its_bootc_child(self):
+        self.add(4242, ["/usr/bin/bootc", "switch", "--enforce-container-sigpolicy", "ghcr.io/o/rudramos-nvidia-legacy:latest"])
+        self.add(4200, ["/bin/bash", "/usr/libexec/pcos/pcos-gpu-switch", "rudramos-nvidia-legacy"], start_ticks=5000)
+        op = status.system_operation(self.proc)
+        self.assertEqual(op.kind, "driver")
+        ticks = os.sysconf("SC_CLK_TCK") if hasattr(os, "sysconf") else 100
+        self.assertAlmostEqual(op.started, 1792500000 + 5000 / ticks)
+
+    def test_update_and_rollback(self):
+        self.add(10, ["/bin/bash", "/usr/libexec/pcos/pcos-update", "upgrade"])
+        self.assertEqual(status.system_operation(self.proc).kind, "update")
+        self.add(11, ["/bin/bash", "/usr/libexec/pcos/pcos-update", "rollback"], start_ticks=1)
+        self.assertEqual(status.system_operation(self.proc).kind, "rollback")  # the earlier one
+
+    def test_bootc_from_a_terminal(self):
+        self.add(20, ["bootc", "upgrade"])
+        self.assertEqual(status.system_operation(self.proc).kind, "update")

@@ -130,7 +130,33 @@ class Window(Adw.ApplicationWindow):
         self._checked_at = 0.0  # time.monotonic() of the last check online (0 = never)
         self._checked_clock = ""  # the same, as a time of day for people
         self._last_updates: status.UpdateStatus | None = None
+        self._operation: status.Operation | None = None  # driver install / update running now
+        self._poll_id = 0
+        self._started_here = False  # a driver install started from this window, maybe still at the prompt
         self.refresh()
+
+    def _poll(self) -> bool:
+        self.refresh()
+        if self._operation or self._started_here:
+            return GLib.SOURCE_CONTINUE
+        self._poll_id = 0
+        return GLib.SOURCE_REMOVE
+
+    def _operation_row(self) -> Adw.ActionRow:
+        """Spinner row for a driver install / update that is running (started here or elsewhere)."""
+        op = self._operation
+        minutes = max(0, int((time.time() - op.started) / 60))
+        started = "just now" if minutes == 0 else f"{minutes} min ago"
+        title, size = {
+            "driver": ("Installing the graphics driver…", "the system with the driver (about 2–3 GB)"),
+            "rollback": ("Switching back to the previous version…", "nothing new: the previous version is kept on this PC"),
+        }.get(op.kind, ("Downloading the update…", "the update"))
+        row = Adw.ActionRow(title=title,
+                            subtitle=f"Downloading {size}. Started {started}. You can keep working; "
+                                     "a notification appears when it's ready to restart.")
+        row.set_subtitle_lines(3)
+        row.add_suffix(Gtk.Spinner(spinning=True, valign=Gtk.Align.CENTER))
+        return row
 
     # ---- data loading (in a thread: rpm-ostree and detection can take a moment) ----
 
@@ -149,6 +175,7 @@ class Window(Adw.ApplicationWindow):
                 self._checked_clock = time.strftime("%H:%M")
             data = {
                 "updates": updates,
+                "operation": status.system_operation(),
                 "boot_menu": status.boot_menu_theme_on(),
                 "admin": status.admin_status(),
                 "apps": status.apps_status(),
@@ -172,6 +199,10 @@ class Window(Adw.ApplicationWindow):
 
     def _apply(self, data) -> bool:
         self._last_updates = data["updates"]
+        self._operation = data["operation"]
+        # While a driver install or update runs, refresh every few seconds to show its state
+        if self._operation and not self._poll_id:
+            self._poll_id = GLib.timeout_add_seconds(5, self._poll)
         self._set_groups("updates", self._updates(data["updates"]))
         self._set_groups("security", self._security(data["admin"]))
         self._set_groups("apps", self._apps(data["apps"]))
@@ -179,7 +210,7 @@ class Window(Adw.ApplicationWindow):
         self._set_groups("usb", self._usb(data["usb"]))
         self._set_groups("privacy", self._privacy(data["privacy"]))
         self._set_groups("disk", self._disk(data["disk"]))
-        self._set_groups("graphics", self._graphics(data["graphics"]))
+        self._set_groups("graphics", self._graphics(data["graphics"], data["updates"]))
         self._set_groups("system", self._system(data["system"], data["boot_menu"]))
         self._loading = False
         return GLib.SOURCE_REMOVE
@@ -187,7 +218,9 @@ class Window(Adw.ApplicationWindow):
     # ---- pages ----
 
     def _updates(self, u: status.UpdateStatus) -> list[Adw.PreferencesGroup]:
-        if self._updating:
+        if self._operation and not self._updating:
+            state = self._operation_row()
+        elif self._updating:
             state = Adw.ActionRow(title="Downloading the update…",
                                   subtitle="You can keep working. This usually takes a few minutes.")
             state.add_suffix(Gtk.Spinner(spinning=True, valign=Gtk.Align.CENTER))
@@ -205,7 +238,7 @@ class Window(Adw.ApplicationWindow):
             state = info_row("Couldn't check for updates",
                              "No internet connection, or the update server can't be reached right now.")
         check = button_row("Check for updates", "", "Check now", lambda: self.refresh(check_online=True),
-                           sensitive=not self._updating)
+                           sensitive=not (self._updating or self._operation))
 
         b = u.booted
         this_pc = [
@@ -453,15 +486,27 @@ class Window(Adw.ApplicationWindow):
             ]))
         return groups
 
-    def _graphics(self, s: status.GraphicsStatus) -> list[Adw.PreferencesGroup]:
+    def _graphics(self, s: status.GraphicsStatus, u: status.UpdateStatus) -> list[Adw.PreferencesGroup]:
         rows = [
             info_row("Graphics card", s.gpu_name),
             info_row("Installed driver", s.installed),
             info_row("Recommended", f"{s.wanted} ({s.reason})" if s.reason else s.wanted),
         ]
-        if s.wanted != s.installed:
+        # The switch downloads under the new name, or the old pcos name while that's the one available
+        staged = u.staged.image.split(":", 1)[0] if u.staged else ""
+        downloaded = staged in (s.wanted, "pcos" + s.wanted[len("rudramos"):])
+        if self._operation and self._operation.kind == "driver":
+            rows.append(self._operation_row())
+        elif s.wanted != s.installed and downloaded:
+            rows.append(button_row(
+                "Driver downloaded: restart to finish",
+                "After the restart, if a blue \"MOK Manager\" screen appears: Enroll MOK → Continue → Yes, "
+                "type universalblue, then Reboot.",
+                "Restart", self._reboot, suggested=True))
+        elif s.wanted != s.installed:
             rows.append(button_row("Install the recommended driver", "Downloads in the background, then asks you to restart.",
-                                   "Install", lambda: self._switch_driver(s.wanted), suggested=True))
+                                   "Install", lambda: self._switch_driver(s.wanted), suggested=True,
+                                   sensitive=self._operation is None))
         return [group("Graphics driver", "RudramOS picks the driver from the graphics card it finds.", rows)]
 
     def _system(self, s: status.SystemStatus, boot_menu_on: bool) -> list[Adw.PreferencesGroup]:
@@ -497,8 +542,13 @@ class Window(Adw.ApplicationWindow):
     def _switch_driver(self, variant: str) -> None:
         self._toast(f"Installing {variant}… this can take several minutes.")
         proc = Gio.Subprocess.new(["pkexec", GPU_SWITCH, variant], Gio.SubprocessFlags.NONE)
+        # Keep refreshing (also while the approval prompt is open) so the progress row appears
+        self._started_here = True
+        if not self._poll_id:
+            self._poll_id = GLib.timeout_add_seconds(3, self._poll)
 
         def done(p, result):
+            self._started_here = False
             try:
                 ok = p.wait_check_finish(result)
             except GLib.Error:

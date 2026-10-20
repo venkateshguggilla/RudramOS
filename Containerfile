@@ -27,7 +27,7 @@ RUN dotnet test tests/TempMonitor.Core.Tests \
 # PC Cleaner (https://github.com/venkateshguggilla/pc-cleaner), a pinned commit. Python: fetched
 # here, tested and installed by build.sh with the image's own Python and Tk.
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS pc-cleaner
-ARG PC_CLEANER_REF="09626930979d1d0007b9745b8ab26dbfe6407aec"
+ARG PC_CLEANER_REF="0abe766468bb9b624bc2712f9dc9e44960dd8254"
 WORKDIR /src
 RUN git init -q . \
     && git fetch -q --depth 1 https://github.com/venkateshguggilla/pc-cleaner.git "${PC_CLEANER_REF}" \
