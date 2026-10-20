@@ -9,7 +9,7 @@
        security key in Strong mode). -->
   <action id="org.pcos.privacy">
     <description>Change privacy settings</description>
-    <message>Authentication is required to change privacy settings</message>
+    <message>RudramOS Control Center wants to change a privacy setting ($(cmdline_short))</message>
     <icon_name>preferences-system-privacy</icon_name>
     <defaults>
       <allow_any>no</allow_any>
@@ -21,7 +21,7 @@
 
   <action id="org.pcos.killswitch">
     <description>Turn the VPN kill switch on or off</description>
-    <message>Authentication is required to change the VPN kill switch</message>
+    <message>RudramOS Control Center wants to turn the VPN kill switch on or off ($(cmdline_short))</message>
     <icon_name>network-vpn</icon_name>
     <defaults>
       <allow_any>no</allow_any>

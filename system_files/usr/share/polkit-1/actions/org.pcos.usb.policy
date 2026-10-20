@@ -9,7 +9,7 @@
        (password, or password + security key in Strong mode). -->
   <action id="org.pcos.usb">
     <description>Allow a USB device</description>
-    <message>Authentication is required to allow this USB device</message>
+    <message>RudramOS USB protection wants to allow a USB device ($(cmdline_short))</message>
     <icon_name>drive-removable-media</icon_name>
     <defaults>
       <allow_any>no</allow_any>

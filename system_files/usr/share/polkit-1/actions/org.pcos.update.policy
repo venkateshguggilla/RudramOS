@@ -9,7 +9,7 @@
        Admin password (or password + key in Strong mode), remembered for a few minutes. -->
   <action id="org.pcos.update">
     <description>Install RudramOS updates</description>
-    <message>Authentication is required to update RudramOS or go back to the previous version</message>
+    <message>RudramOS Control Center wants to update RudramOS or go back to the previous version ($(cmdline_short))</message>
     <icon_name>software-update-available</icon_name>
     <defaults>
       <allow_any>no</allow_any>
@@ -22,7 +22,7 @@
   <!-- System page: switch the boot menu theme on or off (writes /boot/grub2) -->
   <action id="org.pcos.boot-menu">
     <description>Change the boot menu theme</description>
-    <message>Authentication is required to change the boot menu</message>
+    <message>RudramOS Control Center wants to change the boot menu ($(cmdline_short))</message>
     <icon_name>computer</icon_name>
     <defaults>
       <allow_any>no</allow_any>

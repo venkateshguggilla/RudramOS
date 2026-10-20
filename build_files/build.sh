@@ -218,6 +218,9 @@ gtk-update-icon-cache -q -t -f /usr/share/icons/hicolor || true
 if command -v desktop-file-validate >/dev/null; then desktop-file-validate /usr/share/applications/temp-monitor.desktop /usr/share/applications/rudramos-app-store.desktop; fi
 # "App Store" opens Bluefin's Bazaar: fail here if the base image stops shipping it
 grep -rqs "io.github.kolunmi.Bazaar" /usr/share/flatpak/preinstall.d/ || { echo "ERROR: base image no longer preinstalls Bazaar; update pcos-app-store" >&2; exit 1; }
+# Install / remove prompts say who is asking and what, e.g. "The App Store (or a terminal) wants to
+# install an app for everyone on this PC: app/org.mozilla.firefox/x86_64/stable from flathub"
+python3 /ctx/polkit-messages.py /usr/share/polkit-1/actions/org.freedesktop.Flatpak.policy
 # drivetemp (SATA/USB drive temperatures) is loaded at boot by modules-load.d
 find /usr/lib/modules -name 'drivetemp.ko*' | grep -q . || { echo "ERROR: kernel has no drivetemp module" >&2; exit 1; }
 # Runs without a display and prints whatever sensors the build container can see

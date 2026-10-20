@@ -101,6 +101,13 @@ Every admin action (installing apps, system settings, `sudo`) asks for approval.
 - **Standard** (default): your password, like a Mac.
 - **Strong**: your password **and** a touch of a registered FIDO2 security key (e.g. YubiKey).
 
+Each approval prompt says **who is asking and what will change**, for example:
+- "The App Store (or a terminal) wants to install an app for everyone on this PC: app/org.mozilla.firefox/x86_64/stable from flathub"
+- "RudramOS Control Center wants to update RudramOS or go back to the previous version (/usr/libexec/pcos/pcos-update upgrade)"
+- "Temp Monitor wants to change fan settings: switch the fan profile to Silent"
+
+If a prompt appears that you didn't expect, click **Cancel**.
+
 Switch to Strong (register both keys first):
 ```bash
 sudo pcos-admin-mode add-key

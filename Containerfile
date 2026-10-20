@@ -11,7 +11,7 @@ ARG BASE_TAG="stable"
 # Temp Monitor (https://github.com/venkateshguggilla/temp-monitor), built from a pinned
 # commit so upstream changes only reach the OS when this ref is bumped. Unit tests must pass.
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS temp-monitor
-ARG TEMP_MONITOR_REF="bdd474e068c8230d1656a68e62b53e2a4110042b"
+ARG TEMP_MONITOR_REF="3a500e64088415cd3f7bee0aa04f8d2973a1d38a"
 WORKDIR /src
 RUN git init -q . \
     && git fetch -q --depth 1 https://github.com/venkateshguggilla/temp-monitor.git "${TEMP_MONITOR_REF}" \
@@ -27,7 +27,7 @@ RUN dotnet test tests/TempMonitor.Core.Tests \
 # PC Cleaner (https://github.com/venkateshguggilla/pc-cleaner), a pinned commit. Python: fetched
 # here, tested and installed by build.sh with the image's own Python and Tk.
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS pc-cleaner
-ARG PC_CLEANER_REF="616584bd91776f525ac7e9a3f6e46886e5955059"
+ARG PC_CLEANER_REF="09626930979d1d0007b9745b8ab26dbfe6407aec"
 WORKDIR /src
 RUN git init -q . \
     && git fetch -q --depth 1 https://github.com/venkateshguggilla/pc-cleaner.git "${PC_CLEANER_REF}" \

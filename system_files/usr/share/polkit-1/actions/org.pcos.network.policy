@@ -9,7 +9,7 @@
        (password, or password + security key in Strong mode). -->
   <action id="org.pcos.network">
     <description>Change network trust and sharing</description>
-    <message>Authentication is required to change which networks can reach this PC</message>
+    <message>RudramOS Control Center wants to change which networks and devices can reach this PC ($(cmdline_short))</message>
     <icon_name>network-wireless</icon_name>
     <defaults>
       <allow_any>no</allow_any>

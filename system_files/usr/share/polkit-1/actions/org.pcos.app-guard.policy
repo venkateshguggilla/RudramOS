@@ -9,7 +9,7 @@
        (password, or password + security key in Strong mode). -->
   <action id="org.pcos.app-guard">
     <description>Approve a program</description>
-    <message>Authentication is required to allow this program to run</message>
+    <message>RudramOS app approval wants to change which programs may run ($(cmdline_short))</message>
     <icon_name>security-high</icon_name>
     <defaults>
       <allow_any>no</allow_any>
@@ -21,7 +21,7 @@
 
   <action id="org.pcos.browser-extensions">
     <description>Change approved browser extensions</description>
-    <message>Authentication is required to change which browser extensions can be installed</message>
+    <message>RudramOS Control Center wants to change which Firefox extensions may be installed ($(cmdline_short))</message>
     <icon_name>web-browser</icon_name>
     <defaults>
       <allow_any>no</allow_any>

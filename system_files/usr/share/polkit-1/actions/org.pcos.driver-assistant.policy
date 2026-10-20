@@ -9,7 +9,7 @@
        Always needs admin approval (password, or password + security key in Strong mode). -->
   <action id="org.pcos.driver-assistant.switch">
     <description>Install graphics driver</description>
-    <message>Authentication is required to install the graphics driver for this PC</message>
+    <message>RudramOS Driver Assistant wants to install the right graphics driver for this PC ($(cmdline_short))</message>
     <icon_name>video-display</icon_name>
     <defaults>
       <allow_any>no</allow_any>
