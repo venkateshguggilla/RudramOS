@@ -1,0 +1,46 @@
+# RudramOS boot menu (GRUB theme). The menu is normally hidden; it appears when a boot failed or
+# when Shift / Esc is held at start-up. Installed into /boot by pcos-grub-theme.service.
+title-text: ""
+desktop-image: "background.png"
+desktop-color: "#000000"
+terminal-font: "Unifont Regular 16"
+terminal-box: "menu_*.png"
+
++ boot_menu {
+    left = 28%
+    top = 70%
+    width = 44%
+    height = 15%
+    item_font = "Unifont Regular 16"
+    item_color = "#c8ccd2"
+    selected_item_color = "#ffffff"
+    item_height = 34
+    item_padding = 14
+    item_spacing = 6
+    icon_width = 0
+    icon_height = 0
+    menu_pixmap_style = "menu_*.png"
+    selected_item_pixmap_style = "select_*.png"
+    scrollbar = false
+}
+
++ label {
+    id = "__timeout__"
+    top = 89%
+    left = 0
+    width = 100%
+    align = "center"
+    text = "Starting RudramOS in %d s"
+    color = "#e0262c"
+    font = "Unifont Regular 16"
+}
+
++ label {
+    top = 92%
+    left = 0
+    width = 100%
+    align = "center"
+    text = "Up / Down to choose  ·  Enter to start  ·  e to edit"
+    color = "#8a94a3"
+    font = "Unifont Regular 16"
+}

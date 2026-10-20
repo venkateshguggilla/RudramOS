@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE wallpapers SYSTEM "gnome-wp-list.dtd">
+<wallpapers>
+  <wallpaper deleted="false">
+    <name>RudramOS Trishul</name>
+    <filename>/usr/share/backgrounds/rudramos/rudramos-trishul.jpg</filename>
+    <filename-dark>/usr/share/backgrounds/rudramos/rudramos-trishul.jpg</filename-dark>
+    <options>zoom</options>
+    <shade_type>solid</shade_type>
+    <pcolor>#000000</pcolor>
+    <scolor>#000000</scolor>
+  </wallpaper>
+  <wallpaper deleted="false">
+    <name>RudramOS Emblem</name>
+    <filename>/usr/share/backgrounds/rudramos/rudramos-emblem.jpg</filename>
+    <filename-dark>/usr/share/backgrounds/rudramos/rudramos-emblem.jpg</filename-dark>
+    <options>zoom</options>
+    <shade_type>solid</shade_type>
+    <pcolor>#0a0406</pcolor>
+    <scolor>#0a0406</scolor>
+  </wallpaper>
+</wallpapers>

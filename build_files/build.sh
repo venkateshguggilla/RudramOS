@@ -19,6 +19,28 @@ sed -i 's/^PRETTY_NAME=.*/PRETTY_NAME="RudramOS"/' /usr/lib/os-release
 mkdir -p /usr/share/pcos
 date -u +%Y%m%d > /usr/share/pcos/build-date
 
+### Look and feel (images made by tools/make-branding.py): trishul logo, wallpapers, red accent,
+# dark style, login screen logo, boot menu theme. The dconf defaults are compiled by the
+# "dconf update" further down.
+if grep -q '^LOGO=' /usr/lib/os-release; then
+    sed -i 's/^LOGO=.*/LOGO=rudramos-logo/' /usr/lib/os-release
+else
+    echo 'LOGO=rudramos-logo' >>/usr/lib/os-release
+fi
+# Login screen (GDM) reads /etc/dconf/db/gdm.d through its own dconf profile
+if [[ ! -f /usr/share/dconf/profile/gdm && ! -f /etc/dconf/profile/gdm ]]; then
+    printf 'user-db:user\nsystem-db:gdm\nfile-db:/usr/share/gdm/greeter-dconf-defaults\n' >/etc/dconf/profile/gdm
+fi
+# Boot menu: GRUB needs its own font next to the theme; .stamp lets the installer skip unchanged themes
+GRUB_THEME=/usr/share/pcos/grub/rudramos
+for font in /usr/share/grub/unicode.pf2 /usr/share/grub2/unicode.pf2; do
+    [[ -f "${font}" ]] && cp "${font}" "${GRUB_THEME}/unicode.pf2" && break
+done
+[[ -f "${GRUB_THEME}/unicode.pf2" ]] || { echo "ERROR: no GRUB unicode.pf2 font for the boot menu theme" >&2; exit 1; }
+(cd "${GRUB_THEME}" && find . -type f ! -name .stamp -print0 | sort -z | xargs -0 sha256sum | sha256sum >.stamp)
+chmod 0755 /usr/libexec/pcos/pcos-grub-theme
+systemctl enable pcos-grub-theme.service
+
 ### Boot animation (Plymouth): Shiva's eyes and the trishul, with the disk password prompt.
 # Set before gpu.sh so an initramfs rebuilt there (nvidia-legacy) already has it.
 dnf5 install -y plymouth-plugin-script
@@ -179,6 +201,8 @@ mkdir -p /etc/pcos/firefox-policies.d
 PCOS_NO_RELOAD=1 /usr/bin/pcos-privacy preset balanced
 test -s /etc/systemd/resolved.conf.d/80-pcos-dns.conf
 dconf update
+# The look-and-feel defaults compiled: desktop (distro) and login screen (gdm)
+test -f /etc/dconf/db/gdm && test -f /etc/dconf/db/distro
 
 ### Temp Monitor (docs/DESIGN.md §9), built in the Containerfile's temp-monitor stage
 # Folder publish (not single-file), so nothing is unpacked into home folders at run time.

@@ -264,7 +264,16 @@ Repo: `C:\Venky\work\pc_cleaner` (or `apps/pc-cleaner`)
 
 ## Phase 12: First-boot setup and polish (M)
 - [ ] First-boot flow (DESIGN §10): admin mode, keys, disk unlock, recovery key, privacy preset, network trust, MOK enrollment, phone
-- [ ] Branding: name, logo, wallpapers, boot splash (Plymouth), GNOME defaults (dock, apps)
+- [x] **Look and feel** from the Shiva-eyes-and-trishul art (images made by `tools/make-branding.py`, `tools/make-plymouth-frames.py`):
+  - [x] Boot animation: Plymouth script theme `rudramos` (40 frames at 70 ms, feathered into black, disk password prompt and messages in the same style), in every variant's initramfs; `rhgb quiet`
+  - [x] Trishul emblem (vector, with bindu and damaru): `rudramos-logo` icon in all sizes + symbolic, `LOGO=` in os-release (Settings → About), login screen logo, top-bar Logo Menu icon
+  - [x] Wallpapers: "RudramOS Trishul" (the art, default, also the lock screen) and "RudramOS Emblem" (silver trishul, crisp at 4K), both in Settings → Appearance
+  - [x] GNOME red accent + dark style by default (desktop and login screen)
+  - [x] Boot menu (GRUB) theme, installed into /boot by `pcos-grub-theme.service` through a guarded `user.cfg` block (falls back to the plain menu; can be turned off); tests
+  - [ ] Check on real boots (VM, 1050 Ti PC): animation timing and scale, password prompt, boot menu with Shift, login screen logo
+  - [ ] Sharper art: a higher-resolution source of the artwork would make the wallpaper crisp at 4K (re-run the tools)
+  - [ ] Login screen background (GNOME draws it plain; needs a gnome-shell theme override)
+- [ ] GNOME defaults (dock, apps)
 - [ ] Control Center **Updates** page (version, update now, rollback)
 - [ ] User guide (`docs/USER_GUIDE.md`): keys, recovery, USB prompts, extensions, phone
 

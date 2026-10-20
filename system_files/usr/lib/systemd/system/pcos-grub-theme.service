@@ -1,0 +1,11 @@
+[Unit]
+Description=RudramOS boot menu theme (copies it into /boot)
+RequiresMountsFor=/boot
+ConditionPathIsDirectory=/boot/grub2
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/pcos/pcos-grub-theme
+
+[Install]
+WantedBy=multi-user.target

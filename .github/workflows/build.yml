@@ -78,6 +78,7 @@ jobs:
           bash tests/test-usb.sh
           bash tests/test-privacy.sh
           bash tests/test-killswitch.sh
+          bash tests/test-grub-theme.sh
           python3 -m unittest discover -s tests -p "test_*.py" -v
 
       - name: Image Name

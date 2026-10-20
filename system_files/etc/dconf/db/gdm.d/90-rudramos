@@ -1,0 +1,7 @@
+# RudramOS login screen: the trishul under the user list, red accent, dark style.
+[org/gnome/login-screen]
+logo='/usr/share/pixmaps/rudramos-gdm-logo.png'
+
+[org/gnome/desktop/interface]
+accent-color='red'
+color-scheme='prefer-dark'

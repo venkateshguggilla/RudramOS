@@ -1,0 +1,25 @@
+# RudramOS look: the trishul wallpaper (also on the lock screen), red accent, dark style.
+# Defaults only: every user can change them in Settings. Named zz9 so it is read after the base
+# image's own defaults and wins over them.
+[org/gnome/desktop/background]
+picture-uri='file:///usr/share/backgrounds/rudramos/rudramos-trishul.jpg'
+picture-uri-dark='file:///usr/share/backgrounds/rudramos/rudramos-trishul.jpg'
+picture-options='zoom'
+primary-color='#000000'
+secondary-color='#000000'
+color-shading-type='solid'
+
+[org/gnome/desktop/screensaver]
+picture-uri='file:///usr/share/backgrounds/rudramos/rudramos-trishul.jpg'
+picture-options='zoom'
+primary-color='#000000'
+secondary-color='#000000'
+
+[org/gnome/desktop/interface]
+accent-color='red'
+color-scheme='prefer-dark'
+
+# Top-bar menu button (Logo Menu extension, if enabled): the trishul
+[org/gnome/shell/extensions/Logo-menu]
+use-custom-icon=true
+custom-icon-path='/usr/share/pixmaps/rudramos-logo-white.svg'

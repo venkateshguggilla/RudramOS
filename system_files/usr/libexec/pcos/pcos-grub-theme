@@ -1,0 +1,66 @@
+#!/bin/bash
+# Installs the RudramOS boot menu theme into /boot/grub2, where GRUB can read it (bootc images
+# can't ship files in /boot). GRUB reads /boot/grub2/user.cfg on every boot; the block added there
+# only switches to the theme if its files are present, so GRUB falls back to its plain menu if
+# anything is missing. Turn the theme off with:
+#   sudo touch /etc/pcos/no-grub-theme && sudo systemctl start pcos-grub-theme
+set -euo pipefail
+
+# Paths can be overridden for tests (tests/test-grub-theme.sh)
+SRC="${PCOS_GRUB_THEME_SRC:-/usr/share/pcos/grub/rudramos}"
+GRUB="${PCOS_GRUB_DIR:-/boot/grub2}"
+DEST="${GRUB}/themes/rudramos"
+CFG="${GRUB}/user.cfg"
+BEGIN="### BEGIN RudramOS boot menu theme"
+END="### END RudramOS boot menu theme"
+
+[[ -d "${GRUB}" ]] || { echo "No ${GRUB}: nothing to do"; exit 0; }
+
+# /boot may be mounted read-only; make it writable just for this
+remount=0
+if [[ "${GRUB}" == /boot/grub2 ]] && findmnt -no OPTIONS /boot 2>/dev/null | tr ',' '\n' | grep -qx ro; then
+    mount -o remount,rw /boot
+    remount=1
+fi
+trap '[[ ${remount} == 1 ]] && mount -o remount,ro /boot || true' EXIT
+
+remove_block() {
+    [[ -f "${CFG}" ]] && sed -i "/^${BEGIN}\$/,/^${END}\$/d" "${CFG}"
+    return 0
+}
+
+if [[ -e "${PCOS_NO_GRUB_THEME:-/etc/pcos/no-grub-theme}" ]]; then
+    remove_block
+    rm -rf "${DEST}"
+    echo "Boot menu theme removed"
+    exit 0
+fi
+
+# Nothing to do if this exact theme is installed and enabled
+if cmp -s "${SRC}/.stamp" "${DEST}/.stamp" 2>/dev/null && grep -qx "${BEGIN}" "${CFG}" 2>/dev/null; then
+    exit 0
+fi
+
+mkdir -p "${GRUB}/themes"
+rm -rf "${DEST}.new"
+cp -r "${SRC}" "${DEST}.new"
+rm -rf "${DEST}"
+mv "${DEST}.new" "${DEST}"
+
+remove_block
+cat >>"${CFG}" <<CFG
+${BEGIN}
+if [ -f \${prefix}/themes/rudramos/theme.txt -a -f \${prefix}/themes/rudramos/unicode.pf2 ]; then
+  insmod all_video
+  insmod gfxterm
+  insmod png
+  loadfont \${prefix}/themes/rudramos/unicode.pf2
+  set gfxmode=auto
+  terminal_output gfxterm
+  set theme=\${prefix}/themes/rudramos/theme.txt
+  export theme
+fi
+${END}
+CFG
+sync
+echo "Boot menu theme installed"
