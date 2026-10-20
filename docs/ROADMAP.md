@@ -212,9 +212,13 @@ Repo: `C:\Venky\work\temp_monitor` (or `apps/temp-monitor`)
 
 ### 9d: Fan control (L)
 - [x] 9d.1 **Fan readings** (read-only): `FanReading`/`FanReport` + `ISensorProvider.ReadFans()`; Linux hwmon (Super I/O, amdgpu/nouveau, applesmc RPM range + manual flag, ThinkPad, Dell) with PWM duty and mode, NVML fans (%, RPM on 535+, auto/manual); empty motherboard headers hidden; Windows via LibreHardwareMonitor (Super I/O + fan controllers); **Fans** card and `--print`; 6 tests on fake trees
-- [ ] 9d.2 Root **fan daemon** (D-Bus + polkit): hwmon PWM, NVML, amdgpu fan curve, liquidctl
-- [ ] Per-fan Auto / Fixed / Curve, rename, **Identify**, profiles
-- [ ] Safety: floor, critical → 100%, crash → BIOS auto, stall alert
+- [x] 9d.2 Root **fan service** (`temp-monitor-fans.service`, `TempMonitor --fan-daemon`): hwmon PWM (Super I/O, amdgpu, nouveau), Apple SMC (RPM within min/max), NVML; Unix socket (JSON lines) + **polkit** via kernel peer credentials instead of D-Bus (no extra dependency); hardened unit; `temp-monitor fan …` terminal commands; docs in temp-monitor `docs/FANS.md`
+- [x] Per-fan Auto / Fixed / Curve (hottest of several sources, hysteresis), rename, **Identify**, profiles Auto (default: changes nothing) / Silent / Balanced / Performance / Custom
+- [x] Safety: floor, CPU/GPU critical → 100%, missing curve sensor → 100%, firmware state saved before the first write and restored on stop / crash (`ExecStopPost=--fan-restore`), stall alert, periodic re-assert; lowering a limit needs admin approval
+- [x] 17 tests on fake sysfs/NVML; verified in WSL as root (service, socket, refusal without polkit, clean SIGTERM)
+- [ ] 9d.3 **Fans card controls** in the app: profile picker, per-fan mode, curve editor, rename, Identify, stall/critical banners
+- [ ] Real hardware: MacBook (applesmc), RTX 3060 (NVML + motherboard headers), GTX 1050 Ti (NVML 580); `systemctl kill -s KILL temp-monitor-fans` returns fans to BIOS
+- [ ] Later: amdgpu RX 7000 (`gpu_od/fan_ctrl`), liquidctl (AIOs, USB fan hubs)
 - [ ] Windows: fan control through LibreHardwareMonitorLib (same UI)
 
 ### 9e: Notifications + history (M)

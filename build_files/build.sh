@@ -169,6 +169,13 @@ if command -v desktop-file-validate >/dev/null; then desktop-file-validate /usr/
 find /usr/lib/modules -name 'drivetemp.ko*' | grep -q . || { echo "ERROR: kernel has no drivetemp module" >&2; exit 1; }
 # Runs without a display and prints whatever sensors the build container can see
 timeout 120 /usr/bin/temp-monitor --print
+# Fan control service (root): profile "Auto" by default, so it changes nothing until the user
+# picks a fan profile. Lowering fan safety limits needs admin approval (polkit).
+install -Dm0644 /ctx/apps/temp-monitor-packaging/temp-monitor-fans.service /usr/lib/systemd/system/temp-monitor-fans.service
+install -Dm0644 /ctx/apps/temp-monitor-packaging/com.github.venkateshguggilla.tempmonitor.policy \
+    /usr/share/polkit-1/actions/com.github.venkateshguggilla.tempmonitor.policy
+systemctl enable temp-monitor-fans.service
+timeout 60 /usr/bin/temp-monitor fan --help >/dev/null
 
 ### Check the Control Center loads (imports GTK/Adw, no display needed)
 python3 -B -c 'import sys; sys.path.insert(0, "/usr/lib/pcos-control"); import pcos_control.app'

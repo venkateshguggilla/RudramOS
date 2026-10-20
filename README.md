@@ -145,6 +145,21 @@ sudo pcos-privacy preset maximum
 
 **VPN kill switch:** add your WireGuard VPN in Settings → Network → VPN, then turn on *VPN kill switch* in Control Center → Privacy (or `sudo pcos-killswitch on`). Internet then only works through the VPN. The local network (router, printers) still works.
 
+## Temp Monitor and fans
+**Temp Monitor** (app grid, or `temp-monitor`) shows live temperature and usage for the CPU, GPU, RAM and every drive, plus every fan's speed. `temp-monitor --print` prints the same in a terminal.
+
+Fans are left to the BIOS until you choose otherwise. To let RudramOS run them:
+```bash
+temp-monitor fan
+```
+```bash
+temp-monitor fan profile balanced
+```
+- **Profiles:** *Auto* (BIOS, the default), *Silent*, *Balanced*, *Performance*, or *Custom* (each fan Auto, a fixed %, or its own temperature curve, e.g. `temp-monitor fan curve 1 40:30 60:50 80:100`).
+- **Always on:** fans never drop below 20 %. If the CPU reaches 95 °C or the GPU 90 °C, every fan goes to 100 %. A fan that stops while it should be spinning is flagged. Lowering these limits asks for your admin approval.
+- If the fan service stops or crashes, every fan goes back to BIOS control exactly as it was.
+- Full guide: [temp-monitor docs/FANS.md](https://github.com/venkateshguggilla/temp-monitor/blob/main/docs/FANS.md).
+
 ## Disk encryption
 Tick **Encrypt my data** in the installer's **Installation Destination** and choose a passphrase. After the first login, set up how the drive unlocks:
 ```bash

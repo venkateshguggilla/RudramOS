@@ -11,7 +11,7 @@ ARG BASE_TAG="stable"
 # Temp Monitor (https://github.com/venkateshguggilla/temp-monitor), built from a pinned
 # commit so upstream changes only reach the OS when this ref is bumped. Unit tests must pass.
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS temp-monitor
-ARG TEMP_MONITOR_REF="45e657c02f71d9d2b842be07fb25a4db35ad9767"
+ARG TEMP_MONITOR_REF="deb0430a2ab4b8e60b7dd5b2a70dd99109f4188b"
 WORKDIR /src
 RUN git init -q . \
     && git fetch -q --depth 1 https://github.com/venkateshguggilla/temp-monitor.git "${TEMP_MONITOR_REF}" \
@@ -20,7 +20,8 @@ RUN dotnet test tests/TempMonitor.Core.Tests \
     && dotnet test tests/TempMonitor.Sensors.Linux.Tests \
     && dotnet publish src/TempMonitor.Avalonia -f net8.0 -r linux-x64 -c Release \
        -p:PublishSingleFile=false -o /out/temp-monitor \
-    && cp src/TempMonitor.Avalonia/Assets/logo.png /out/temp-monitor.png
+    && cp src/TempMonitor.Avalonia/Assets/logo.png /out/temp-monitor.png \
+    && cp -r packaging/linux /out/temp-monitor-packaging
 
 # Build scripts and system files are mounted at build time, not copied into the final image
 FROM scratch AS ctx
