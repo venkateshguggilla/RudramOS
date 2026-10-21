@@ -36,6 +36,11 @@ echo "theme v2" >"${PCOS_GRUB_THEME_SRC}/theme.txt"
 run >/dev/null
 assert "a new image's theme replaces the old one" grep -q 'theme v2' "${PCOS_GRUB_DIR}/themes/rudramos/theme.txt"
 assert "and still one block" bash -c "[ \"\$(grep -c '^### BEGIN RudramOS boot menu theme$' '${CFG}')\" = 1 ]"
+assert "asks GRUB for a full-size screen first" grep -q '^  set gfxmode=1920x1080,.*,auto$' "${CFG}"
+sed -i 's/^  set gfxmode=.*/  set gfxmode=auto/' "${CFG}"
+run >/dev/null
+assert "an old block is rewritten even when the theme files are unchanged" grep -q '^  set gfxmode=1920x1080' "${CFG}"
+assert "and still one block after the rewrite" bash -c "[ \"\$(grep -c '^### BEGIN RudramOS boot menu theme$' '${CFG}')\" = 1 ]"
 touch "${PCOS_NO_GRUB_THEME}"
 run >/dev/null
 assert "turning it off removes the block" bash -c "! grep -q 'RudramOS boot menu theme' '${CFG}'"

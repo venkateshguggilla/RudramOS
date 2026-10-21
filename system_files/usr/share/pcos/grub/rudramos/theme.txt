@@ -1,22 +1,31 @@
 # RudramOS boot menu (GRUB theme). The menu is normally hidden; it appears when a boot failed or
 # when Shift / Esc is held at start-up. Installed into /boot by pcos-grub-theme.service.
+#
+# Sizes must also work when the firmware only gives GRUB a small screen (800x600 or 1024x768):
+# GRUB grows the menu to fit at least a few entries, which pushed it over the labels below.
 title-text: ""
 desktop-image: "background.png"
 desktop-color: "#000000"
 terminal-font: "Unifont Regular 16"
-terminal-box: "menu_*.png"
+# The command line / entry editor ("c" / "e"). No frame: GRUB can show its window even when it is
+# empty, which drew a large blank box over the menu. Kept above the menu so the two never overlap.
+terminal-left: "8%"
+terminal-top: "6%"
+terminal-width: "84%"
+terminal-height: "50%"
+terminal-border: "0"
 
 + boot_menu {
-    left = 28%
-    top = 70%
-    width = 44%
-    height = 15%
+    left = 25%
+    top = 60%
+    width = 50%
+    height = 26%
     item_font = "Unifont Regular 16"
     item_color = "#c8ccd2"
     selected_item_color = "#ffffff"
-    item_height = 34
-    item_padding = 14
-    item_spacing = 6
+    item_height = 26
+    item_padding = 8
+    item_spacing = 4
     icon_width = 0
     icon_height = 0
     menu_pixmap_style = "menu_*.png"
@@ -36,7 +45,7 @@ terminal-box: "menu_*.png"
 }
 
 + label {
-    top = 92%
+    top = 93%
     left = 0
     width = 100%
     align = "center"

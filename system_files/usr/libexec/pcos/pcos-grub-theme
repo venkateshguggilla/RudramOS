@@ -53,8 +53,24 @@ if [[ -e "${FLAG}" ]]; then
     exit 0
 fi
 
+# gfxmode: firmware often hands GRUB a small screen (800x600) under "auto"; ask for common
+# full-HD-ish modes first. GRUB skips modes the graphics card doesn't offer.
+BLOCK="${BEGIN}
+if [ -f \${prefix}/themes/rudramos/theme.txt -a -f \${prefix}/themes/rudramos/unicode.pf2 ]; then
+  insmod all_video
+  insmod gfxterm
+  insmod png
+  loadfont \${prefix}/themes/rudramos/unicode.pf2
+  set gfxmode=1920x1080,1600x900,1366x768,1280x1024,1280x720,1024x768,auto
+  terminal_output gfxterm
+  set theme=\${prefix}/themes/rudramos/theme.txt
+  export theme
+fi
+${END}"
+
 # Nothing to do if this exact theme is installed and enabled
-if cmp -s "${SRC}/.stamp" "${DEST}/.stamp" 2>/dev/null && grep -qx "${BEGIN}" "${CFG}" 2>/dev/null; then
+if cmp -s "${SRC}/.stamp" "${DEST}/.stamp" 2>/dev/null \
+    && [[ "$(sed -n "/^${BEGIN}\$/,/^${END}\$/p" "${CFG}" 2>/dev/null)" == "${BLOCK}" ]]; then
     exit 0
 fi
 
@@ -65,19 +81,6 @@ rm -rf "${DEST}"
 mv "${DEST}.new" "${DEST}"
 
 remove_block
-cat >>"${CFG}" <<CFG
-${BEGIN}
-if [ -f \${prefix}/themes/rudramos/theme.txt -a -f \${prefix}/themes/rudramos/unicode.pf2 ]; then
-  insmod all_video
-  insmod gfxterm
-  insmod png
-  loadfont \${prefix}/themes/rudramos/unicode.pf2
-  set gfxmode=auto
-  terminal_output gfxterm
-  set theme=\${prefix}/themes/rudramos/theme.txt
-  export theme
-fi
-${END}
-CFG
+printf '%s\n' "${BLOCK}" >>"${CFG}"
 sync
 echo "Boot menu theme installed"
