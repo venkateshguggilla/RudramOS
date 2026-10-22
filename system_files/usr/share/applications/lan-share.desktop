@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=LAN Share
+GenericName=File Sharing
+Comment=Share files with PCs and phones on your Home network
+Exec=lan-share
+Icon=lan-share
+Terminal=false
+Categories=Network;FileTransfer;
+Keywords=share;transfer;files;phone;network;lan;send;
+StartupWMClass=lan-share

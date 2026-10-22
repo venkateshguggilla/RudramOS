@@ -5,7 +5,7 @@
 #   status                         networks, their trust, and what's shared on Home networks
 #   trust <network> home|public    mark a network (name or UUID) as Home or Public
 #   share <what> on|off            open/close a sharing service on Home networks:
-#                                  printer-discovery phone remote-desktop file-sharing steam-streaming ssh
+#                                  printer-discovery phone lan-share remote-desktop file-sharing steam-streaming ssh
 #   stop-sharing                   close every sharing service
 #   apply                          put active networks in the right firewall zone
 #   apply-device <iface> <uuid>    same for one interface (used by the NetworkManager hook)
@@ -21,12 +21,13 @@ PUBLIC_ZONE="pcos-public"
 declare -A SERVICES=(
     [printer-discovery]=mdns
     [phone]=kdeconnect
+    [lan-share]=lan-share
     [remote-desktop]=rdp
     [file-sharing]=samba
     [steam-streaming]=steam-streaming
     [ssh]=ssh
 )
-SERVICE_ORDER=(printer-discovery phone remote-desktop file-sharing steam-streaming ssh)
+SERVICE_ORDER=(printer-discovery phone lan-share remote-desktop file-sharing steam-streaming ssh)
 
 die() {
     echo "$*" >&2

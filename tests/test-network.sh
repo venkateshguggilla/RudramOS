@@ -91,8 +91,10 @@ assert "  kdeconnect added to Home zone only" bash -c "grep -qxF -- '--permanent
 assert "share ssh on starts sshd" bash -c "bash '${TOOL}' share ssh on && grep -qx 'enable --now sshd.service' '${SYSTEMCTL_LOG}'"
 assert "status shows shared services" bash -c "bash '${TOOL}' status | grep -q 'phone: on' && bash '${TOOL}' status | grep -q 'ssh: on'"
 assert "unknown service refused" bash -c "! bash '${TOOL}' share telnet on"
+assert "share lan-share on" bash -c "bash '${TOOL}' share lan-share on && grep -qxF -- '--permanent --zone=pcos-home --add-service=lan-share' '${FW_LOG}'"
+assert "  status shows lan-share" bash -c "bash '${TOOL}' status | grep -q 'lan-share: on'"
 assert "share phone off" bash -c "bash '${TOOL}' share phone off && ! grep -qx kdeconnect '${FW_SERVICES}'"
-assert "stop-sharing closes everything and stops sshd" bash -c "bash '${TOOL}' stop-sharing && [ ! -s '${FW_SERVICES}' ] && grep -qx 'disable --now sshd.service' '${SYSTEMCTL_LOG}'"
+assert "stop-sharing closes everything (incl. lan-share) and stops sshd" bash -c "bash '${TOOL}' stop-sharing && [ ! -s '${FW_SERVICES}' ] && grep -qx 'disable --now sshd.service' '${SYSTEMCTL_LOG}'"
 assert "status: nothing shared" bash -c "bash '${TOOL}' status | grep -q 'nothing shared'"
 
 assert "trust back to public removes entry" bash -c "bash '${TOOL}' trust bbbb-2222 public && ! grep -q bbbb-2222 '${TRUSTED_FILE}'"

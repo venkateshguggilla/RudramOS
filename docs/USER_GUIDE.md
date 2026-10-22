@@ -82,6 +82,19 @@ Android phones only (Apple keeps these features to Macs).
   *Wireless debugging* → *Pair device with pairing code*, and type the address and code on the
   Phone page.
 
+## Sharing files with other PCs and phones (LAN Share)
+Open **LAN Share** from the app grid. The first time, give this PC a name and a password and pick
+the folders to share (each one *Read only* or *Read & write*).
+- Other devices can only reach this PC on a **Home** network, and only once you allow it. If
+  LAN Share shows a yellow warning, click **How to fix**: it asks for the admin password to mark
+  the network as Home, then to allow LAN Share (or use Control Center → **Network** → *LAN Share*).
+- **Another PC** (Windows or RudramOS, running LAN Share): click it in the list, enter its
+  password, then copy files either way with the buttons or by dragging.
+- **A phone** (Android or iPhone, nothing to install): click **Connect a phone**, scan the QR code
+  on the same Wi-Fi, tap through the one-time "not private" browser warning, and enter the
+  password. The phone can download, and upload into *Read & write* folders.
+- On any other network LAN Share closes by itself, and this PC doesn't show up there.
+
 ## Updates
 Updates download by themselves in the background and are used after the next restart. Control
 Center → **Updates** shows whether you're up to date. **Update now** gets the newest one right

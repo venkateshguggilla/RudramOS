@@ -132,10 +132,10 @@ class StatusTests(unittest.TestCase):
               "bbbb-2222:802-3-ethernet:enp3s0:Wired connection 1\n"
               "cccc-3333:vpn:tun0:Work VPN\n"
               "dddd-4444:802-11-wireless::Saved but inactive\n")
-        s = status.network_status(trusted, run=fake_run({"nmcli": nm, "firewall-cmd": "dhcpv6-client kdeconnect ssh\n"}))
+        s = status.network_status(trusted, run=fake_run({"nmcli": nm, "firewall-cmd": "dhcpv6-client kdeconnect lan-share ssh\n"}))
         self.assertEqual([(n.name, n.device, n.trusted) for n in s.networks],
                          [("Cafe: Free WiFi", "wlp2s0", False), ("Wired connection 1", "enp3s0", True)])
-        self.assertEqual(s.shared, {"phone", "ssh"})
+        self.assertEqual(s.shared, {"phone", "lan-share", "ssh"})
 
     def test_network_without_tools(self):
         s = status.network_status(os.path.join(self.dir.name, "none"), run=fake_run({}))

@@ -49,6 +49,7 @@ USB_MODES = {
 SHARING_LABELS = {
     "printer-discovery": ("Printer discovery", "Find network printers automatically"),
     "phone": ("Phone link", "Connect your Android phone (GSConnect / KDE Connect)"),
+    "lan-share": ("LAN Share", "Share files with PCs and phones (password required)"),
     "remote-desktop": ("Remote desktop", "Let another computer control this one (RDP)"),
     "file-sharing": ("File sharing", "Windows-compatible shared folders (Samba)"),
     "steam-streaming": ("Steam Remote Play", "Stream games to other devices"),

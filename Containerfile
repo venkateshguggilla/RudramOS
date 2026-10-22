@@ -47,6 +47,26 @@ RUN curl -fsSLo scrcpy.tar.gz \
     && mkdir -p /out/scrcpy \
     && tar xzf scrcpy.tar.gz --strip-components=1 -C /out/scrcpy
 
+# LAN Share (https://github.com/venkateshguggilla/lan-share), a pinned commit: share files with
+# PCs and phones on Home networks. Its tests must pass (the Electron ones under a virtual display).
+FROM docker.io/library/node:22-bookworm AS lan-share
+ARG LAN_SHARE_REF="6a9e97bbdffb22bf20c3883a1497fab8f61f4fe0"
+WORKDIR /src
+RUN apt-get update -qq \
+    && apt-get install -y -qq --no-install-recommends xvfb xauth libnss3 libgtk-3-0 libgbm1 libasound2 >/dev/null \
+    && rm -rf /var/lib/apt/lists/*
+RUN git init -q . \
+    && git fetch -q --depth 1 https://github.com/venkateshguggilla/lan-share.git "${LAN_SHARE_REF}" \
+    && git checkout -q FETCH_HEAD
+RUN npm ci --no-audit --no-fund \
+    && npm run build \
+    && node test/netprofile.test.js \
+    && xvfb-run -a npx electron --no-sandbox test/e2e.js \
+    && npx electron-builder --linux dir --x64 --publish never \
+    && mkdir -p /out \
+    && cp -a release/linux-unpacked /out/lan-share \
+    && cp build/icon.png /out/lan-share.png
+
 # Build scripts and system files are mounted at build time, not copied into the final image
 FROM scratch AS ctx
 COPY build_files /
@@ -55,6 +75,7 @@ COPY keys /keys
 COPY --from=temp-monitor /out /apps
 COPY --from=pc-cleaner /out /apps
 COPY --from=scrcpy /out /apps
+COPY --from=lan-share /out /apps
 
 FROM ${BASE_IMAGE}:${BASE_TAG}
 

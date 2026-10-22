@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- LAN Share: opened only in pcos-home, with `pcos-network share lan-share on`.
+     UDP 47820: finding other PCs (broadcast). TCP 47821-47830: the password-protected HTTPS file
+     server (47821, or the next free port) that PCs and phones connect to. -->
+<service>
+  <short>LAN Share</short>
+  <description>Share files with PCs and phones on this network (password required).</description>
+  <port protocol="udp" port="47820"/>
+  <port protocol="tcp" port="47821-47830"/>
+</service>

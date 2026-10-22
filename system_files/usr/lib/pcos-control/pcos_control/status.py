@@ -90,6 +90,7 @@ class Network:
 SHARING = {
     "printer-discovery": "mdns",
     "phone": "kdeconnect",
+    "lan-share": "lan-share",
     "remote-desktop": "rdp",
     "file-sharing": "samba",
     "steam-streaming": "steam-streaming",

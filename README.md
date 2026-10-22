@@ -9,7 +9,7 @@ A personal desktop operating system for PCs: **secured like a Mac and as easy to
 - **Gatekeeper-style app approval.** Browser extensions can only be installed after admin approval.
 - **No tracking.** Privacy presets (Balanced / Maximum / Custom).
 - **Nothing gets in without permission.** Incoming network connections are blocked (stealth), and new USB devices are blocked until approved.
-- **Built-in apps:** Temp Monitor (temperatures, per-fan control, overheat alerts, history), PC Cleaner, and Android phone integration (notifications, SMS, calls, screen control).
+- **Built-in apps:** Temp Monitor (temperatures, per-fan control, overheat alerts, history), PC Cleaner, LAN Share (copy files between PCs and phones on your Home network), and Android phone integration (notifications, SMS, calls, screen control).
 - **GPU support:** AMD/Intel, NVIDIA RTX/GTX 16+, NVIDIA GTX 10 (legacy driver).
 
 ## Documents

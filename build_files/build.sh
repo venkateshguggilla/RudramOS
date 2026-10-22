@@ -304,6 +304,23 @@ chmod 0755 /usr/bin/pcos-phone
 HOME=/tmp /usr/lib/scrcpy/adb version
 if command -v desktop-file-validate >/dev/null; then desktop-file-validate /usr/share/applications/rudramos-phone-screen.desktop; fi
 
+### LAN Share (docs/DESIGN.md §5.4), from the Containerfile's lan-share stage
+# Electron app. Nothing can reach it until the network is Home and an admin allows it
+# (pcos-network share lan-share on); until then it doesn't announce itself either.
+dnf5 install -y nss gtk3 mesa-libgbm alsa-lib
+cp -a /ctx/apps/lan-share /usr/lib/lan-share
+chmod 0755 /usr/lib/lan-share/lan-share
+# RudramOS keeps unprivileged user namespaces on (DESIGN §4.6), which Chromium's sandbox uses;
+# the setuid sandbox helper isn't needed, so it never gets the setuid bit.
+chmod 0755 /usr/lib/lan-share/chrome-sandbox
+ln -sf /usr/lib/lan-share/lan-share /usr/bin/lan-share
+install -Dm0644 /ctx/apps/lan-share.png /usr/share/icons/hicolor/512x512/apps/lan-share.png
+gtk-update-icon-cache -q -t -f /usr/share/icons/hicolor || true
+# The binary and every library it links load in this image (no display needed)
+ELECTRON_RUN_AS_NODE=1 /usr/lib/lan-share/lan-share -e 'console.log("LAN Share on Electron", process.versions.electron)'
+firewall-offline-cmd --info-service=lan-share
+if command -v desktop-file-validate >/dev/null; then desktop-file-validate /usr/share/applications/lan-share.desktop; fi
+
 ### Check the Control Center loads (imports GTK/Adw, no display needed)
 python3 -B -c 'import sys; sys.path.insert(0, "/usr/lib/pcos-control"); import pcos_control.app'
 

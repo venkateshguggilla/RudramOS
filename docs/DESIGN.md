@@ -223,7 +223,7 @@ Selected from secureblue / KSPP, avoiding settings known to break apps.
   | Zone | Inbound | Notes |
   |---|---|---|
   | `pcos-public` (default) | **Drop everything**, no ICMP echo reply (stealth); only IPv6 neighbour discovery, router adverts, path-MTU and error ICMP allowed (`icmp-block-inversion`) | Sharing can't be enabled |
-  | `pcos-home` | Same defaults; only services the user enabled are opened | `mdns`, `kdeconnect`, `rdp`, `samba`, `steam-streaming`, `ssh` via `pcos-network share` |
+  | `pcos-home` | Same defaults; only services the user enabled are opened | `mdns`, `kdeconnect`, `lan-share`, `rdp`, `samba`, `steam-streaming`, `ssh` via `pcos-network share` |
 - Outbound: allowed (no domain restrictions; this was explicitly decided).
 - Changing zones or rules needs admin approval.
 
@@ -240,6 +240,7 @@ Selected from secureblue / KSPP, avoiding settings known to break apps.
 - **File sharing:** selected folders only, password required, automatically off when the PC leaves the Home network
 - **Remote desktop:** its own password, with an on-screen indicator while someone is connected
 - **Phone pairing:** approved per device (§9.3)
+- **LAN Share** (built-in app, [venkateshguggilla/lan-share](https://github.com/venkateshguggilla/lan-share)): browse and copy files between PCs, and to/from phones through a browser page (QR code). Its own password (scrypt), 5-try lockout, read-only or read & write folders, HTTPS with a pinned self-signed certificate. Firewall service `lan-share` (UDP 47820 discovery, TCP 47821-47830). It reads `pcos-network status` every 10 s: while the network is Public or `lan-share` isn't allowed, it doesn't announce itself and shows a warning whose buttons run `pkexec pcos-network trust <network> home` / `share lan-share on` (same admin approval as Control Center)
 - **Bluetooth:** not discoverable, every pairing approved on screen
 - **Control Center → Sharing:** shows what's shared, on which network and who's connected, with a single **Stop all sharing** button
 
