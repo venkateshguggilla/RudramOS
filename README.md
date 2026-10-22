@@ -15,6 +15,7 @@ A personal desktop operating system for PCs: **secured like a Mac and as easy to
 ## Documents
 - [Design document](docs/DESIGN.md): architecture and every feature in detail
 - [Build roadmap](docs/ROADMAP.md): phases, checklists and "done when" criteria
+- [User guide](docs/USER_GUIDE.md): everyday use and what to do when something goes wrong, in plain words
 
 ## Status
 Phase 1 complete (2026-10-18). Phase 2 in progress: three GPU image variants build in CI; hardware testing on the NVIDIA PCs pending.

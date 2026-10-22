@@ -290,7 +290,7 @@ Repo: `C:\Venky\work\pc_cleaner` (or `apps/pc-cleaner`)
 - [x] **Buttons instead of commands**: app approval on/off, boot menu theme switch (`org.pcos.boot-menu`), **Restart into BIOS / UEFI settings**; README lists every page
 - [ ] Still a terminal (typing secrets / key touch): disk unlock setup (passphrase), security key registration and test, plus the "Show" lists (approved programs, USB devices). Next: in-app password and key-touch dialogs, and in-app lists
 - [ ] Check on a real RudramOS session (VM): every page, Update now → Restart, Roll back
-- [ ] User guide (`docs/USER_GUIDE.md`): keys, recovery, USB prompts, extensions, phone
+- [x] User guide (`docs/USER_GUIDE.md`): first start, apps, downloads, extensions, USB, networks, phone, updates, keys, disk and recovery key, graphics/MOK, cleaner/temps/task manager, and "when something goes wrong" (login lockout, failed update, recovery key prompt, NVIDIA)
 
 **Done when:** a non-technical person can install RudramOS from USB and finish setup without help.
 
