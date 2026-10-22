@@ -180,6 +180,14 @@ for setting in ImplicitPolicyTarget=block PresentDevicePolicy=apply-policy Prese
 done
 mkdir -p /etc/usbguard/rules.d
 chmod 0700 /etc/usbguard/rules.d
+# Never locked out: while no USB keyboard is allowed, a plain keyboard or mouse (only keyboard /
+# mouse interfaces) is let in, e.g. at the login screen where nobody can approve it. A fake
+# "keyboard" stick is still blocked while your keyboard is connected, and a keyboard + storage
+# combination always asks. (Arch wiki / usbguard-rules.conf(5) example.)
+install -m 0600 /usr/share/pcos/usbguard/10-pcos-first-keyboard.conf /etc/usbguard/rules.d/
+if command -v usbguard-rule-parser >/dev/null; then
+    while IFS= read -r rule; do usbguard-rule-parser "${rule}"; done </etc/usbguard/rules.d/10-pcos-first-keyboard.conf
+fi
 : >/etc/usbguard/rules.conf
 chmod 0600 /etc/usbguard/rules.conf
 echo ask >/etc/pcos/usb-mode

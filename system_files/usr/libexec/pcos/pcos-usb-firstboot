@@ -1,15 +1,32 @@
 #!/bin/bash
-# RudramOS: before USBGuard first starts, trust the USB devices connected right now
-# (internal keyboard, trackpad, webcam, Bluetooth, your keyboard and mouse on a desktop).
-# Without this, USBGuard's "block everything unknown" would block them too.
+# RudramOS: runs before every USBGuard start (pcos-usb-firstboot.service).
+# - First start: trust the USB devices connected right now (internal keyboard, trackpad,
+#   webcam, Bluetooth, your keyboard and mouse on a desktop). Without this, USBGuard's "block
+#   everything unknown" would block them too.
+# - Every start: drop port details from the "always allow" rules. USBGuard's generated rules
+#   pin devices without a serial number (most keyboards and mice) to a port number like "1-2",
+#   and port numbers can change after an update or when a device moves to another port. The
+#   keyboard then counted as new and was blocked at the login screen, where nobody can approve
+#   it. Devices stay identified by vendor:product id, name, serial and descriptor hash.
 set -euo pipefail
 
-RULES=/etc/usbguard/rules.conf
-if [[ -s "${RULES}" ]]; then
-    exit 0
+RULES="${PCOS_USBGUARD_RULES:-/etc/usbguard/rules.conf}"
+
+if [[ ! -s "${RULES}" ]]; then
+    tmp=$(mktemp)
+    usbguard generate-policy >"${tmp}"
+    install -m 0600 "${tmp}" "${RULES}"
+    rm -f "${tmp}"
+    echo "USBGuard: trusted $(grep -c '^allow' "${RULES}") connected device(s)"
 fi
-tmp=$(mktemp)
-usbguard generate-policy >"${tmp}"
-install -m 0600 -o root -g root "${tmp}" "${RULES}"
-rm -f "${tmp}"
-echo "USBGuard: trusted $(grep -c '^allow' "${RULES}") connected device(s)"
+
+# via-port "1-2" / via-port one-of { "1-2" "3-4" }, parent-hash "…", with-connect-type "…"
+PORT_DETAILS='[[:space:]](via-port|parent-hash|with-connect-type)[[:space:]]+("[^"]*"|[a-z-]*[[:space:]]*\{[^}]*\})'
+if grep -qE "${PORT_DETAILS}" "${RULES}"; then
+    tmp=$(mktemp)
+    sed -E "s/${PORT_DETAILS}//g" "${RULES}" >"${tmp}"
+    # Keep the rules file's owner and mode (root, 0600)
+    cat "${tmp}" >"${RULES}"
+    rm -f "${tmp}"
+    echo "USBGuard: removed port details from the allowed-device rules"
+fi

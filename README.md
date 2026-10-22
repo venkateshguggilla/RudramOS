@@ -152,7 +152,8 @@ sudo pcos-admin-mode strong
 - Nothing is asked, and nothing new works, while the screen is locked.
 - Security keys (YubiKey, Nitrokey, ...) are always allowed permanently once approved.
 - Modes in Control Center → **USB**: *Ask* (default), *Allow keyboards and mice*, *Off*. Or `sudo pcos-usb mode allow-input`.
-- **No working keyboard** (for example after replacing a desktop's only keyboard): at the boot menu press **e**, add `systemd.mask=usbguard.service` to the line starting with `linux`, then press **Ctrl+X**. This boots once with USB protection off, so you can approve the new keyboard.
+- **You can't be locked out by your own keyboard:** while no USB keyboard is allowed (at the login screen, say), a plain keyboard or mouse works without asking. A fake "keyboard" stick plugged in next to your keyboard is still blocked. Allowed devices are recognised by what they are, not by which USB port they're in, so moving them to another port is fine.
+- **Still no working keyboard:** at the boot menu (hold Shift or press Esc while the PC starts) press **e**, add `systemd.mask=usbguard.service` to the line starting with `linux`, then press **Ctrl+X**. This boots once with USB protection off, so you can approve the new keyboard.
 
 ## Privacy
 No telemetry, usage reports or "count me" pings in any setting. Time is synced over encrypted, authenticated NTS. Choose a preset in Control Center → **Privacy**, or:

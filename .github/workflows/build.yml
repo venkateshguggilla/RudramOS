@@ -81,6 +81,7 @@ jobs:
           bash tests/test-network.sh
           bash tests/test-usb-describe.sh
           bash tests/test-usb.sh
+          bash tests/test-usb-firstboot.sh
           bash tests/test-privacy.sh
           bash tests/test-killswitch.sh
           bash tests/test-grub-theme.sh
