@@ -287,7 +287,8 @@ install -Dm0644 /ctx/apps/scrcpy/scrcpy.png /usr/share/icons/hicolor/256x256/app
 gtk-update-icon-cache -q -t -f /usr/share/icons/hicolor || true
 chmod 0755 /usr/bin/pcos-phone
 /usr/lib/scrcpy/scrcpy --version
-/usr/lib/scrcpy/adb version
+# adb keeps its keys in ~/.android; the build has no home folder (/root -> missing /var/roothome)
+HOME=/tmp /usr/lib/scrcpy/adb version
 if command -v desktop-file-validate >/dev/null; then desktop-file-validate /usr/share/applications/rudramos-phone-screen.desktop; fi
 
 ### Check the Control Center loads (imports GTK/Adw, no display needed)
