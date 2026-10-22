@@ -79,6 +79,18 @@ sudo bootc switch --enforce-container-sigpolicy ghcr.io/venkateshguggilla/rudram
 
 One-time step after the first build with the new names: on GitHub, open each new package (`rudramos`, `rudramos-nvidia`, `rudramos-nvidia-legacy`) → Package settings → **Change visibility → Public**. New packages start private, and until they're public, installed PCs stay on the old names.
 
+## First start: Welcome to RudramOS
+After installing, **Welcome to RudramOS** opens at your first login (after GNOME's own language and accounts setup). One step per page:
+1. **Admin approval:** Standard (password) or Strong (password + security key); register keys.
+2. **Disk encryption:** create the **recovery key** and write it down, then choose how the drive unlocks (TPM, TPM + PIN, security key).
+3. **Privacy:** Balanced or Maximum.
+4. **This network:** Home or Public (only if you're connected).
+5. **Graphics driver:** only if your card needs a different driver, with what to do on the blue MOK screen.
+6. **Your phone** (optional): Phone link and pairing.
+7. **Protect this PC:** BIOS password, start only from this drive, with a button to restart into the BIOS.
+
+Close it to finish later: it opens again at the next login until you press **Finish** or **Skip setup**. Run it again any time: **Welcome to RudramOS** in the app grid, Control Center → System, or `pcos-setup` (`pcos-setup --reset` shows it at the next login). It opens only for admins: other users can't change these settings.
+
 ## RudramOS Control Center
 Open **RudramOS Control Center** from the app grid (or run `pcos-control`). Everyday tasks are buttons; changes ask for your admin password in the usual system prompt. No terminal needed.
 
@@ -93,7 +105,7 @@ Open **RudramOS Control Center** from the app grid (or run `pcos-control`). Ever
 | Privacy | Presets, DNS, tracker blocking, VPN kill switch |
 | Disk | Recovery key, unlock with TPM / TPM + PIN / security key |
 | Graphics | Install the right graphics driver |
-| System | Boot menu theme on or off, **Restart into BIOS / UEFI settings** |
+| System | Boot menu theme on or off, **Restart into BIOS / UEFI settings**, run the first-time setup again |
 
 Only steps where you type a secret (the disk passphrase) or touch a security key still open a small terminal window.
 

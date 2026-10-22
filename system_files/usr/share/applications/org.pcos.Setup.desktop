@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Welcome to RudramOS
+GenericName=First-time Setup
+Comment=Admin approval, disk encryption, privacy, network, graphics and phone, step by step
+Exec=pcos-setup
+Icon=rudramos-logo
+Terminal=false
+Categories=Settings;System;
+Keywords=setup;welcome;first;start;security;encryption;recovery;privacy;
+StartupNotify=true

@@ -302,6 +302,13 @@ if command -v desktop-file-validate >/dev/null; then desktop-file-validate /usr/
 ### Check the Control Center loads (imports GTK/Adw, no display needed)
 python3 -B -c 'import sys; sys.path.insert(0, "/usr/lib/pcos-control"); import pcos_control.app'
 
+### Welcome to RudramOS: first-boot setup (docs/DESIGN.md §10), opens once at an admin's first login
+chmod 0755 /usr/bin/pcos-setup
+python3 -B -c 'import sys; sys.path.insert(0, "/usr/lib/pcos-control"); import pcos_control.setup'
+if command -v desktop-file-validate >/dev/null; then
+    desktop-file-validate /usr/share/applications/org.pcos.Setup.desktop /etc/xdg/autostart/pcos-setup.desktop
+fi
+
 ### Updates
 # Bluefin already enables automatic updates (uupd.timer: bootc image + Flatpaks,
 # applied on next reboot), so nothing to enable here.

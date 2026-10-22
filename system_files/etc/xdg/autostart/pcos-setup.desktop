@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Welcome to RudramOS
+Comment=First-time setup, shown once for admins
+Exec=/usr/bin/pcos-setup --first-login
+Icon=rudramos-logo
+NoDisplay=true
+X-GNOME-Autostart-enabled=true
+X-GNOME-Autostart-Delay=5

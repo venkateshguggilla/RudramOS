@@ -1,0 +1,15 @@
+#!/usr/bin/python3
+"""Starts Welcome to RudramOS, the first-boot setup.
+
+    pcos-setup                 open it
+    pcos-setup --first-login   at login: open only for admins who haven't finished it yet
+    pcos-setup --reset         open it again at the next login
+"""
+
+import sys
+
+sys.path.insert(0, "/usr/lib/pcos-control")
+
+from pcos_control.setup import main  # noqa: E402
+
+sys.exit(main())

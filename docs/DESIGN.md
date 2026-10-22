@@ -490,7 +490,7 @@ The custom features above need one place in the UI and one privileged backend.
 8. **Connect your phone** (optional, can be skipped)
 9. Recommendations: set a BIOS password, disable USB boot (with links to guidance)
 
-Implementation: GNOME Initial Setup with added RudramOS pages, or a dedicated `pcos-firstboot` app that runs after GNOME Initial Setup. To be decided in phase 12.
+Implementation (decided in phase 12): steps 1–2 stay with the installer and GNOME Initial Setup. Steps 3–9 are **Welcome to RudramOS** (`pcos-setup`), a dedicated app that opens at an admin's first login (XDG autostart, after GNOME Initial Setup has closed) and reuses Control Center's pages, buttons and polkit approval, so both always behave the same. Steps with nothing to do on a PC are left out (no network connected, the right graphics driver already installed). It reopens at each login until finished or skipped, and can be run again from the app grid or Control Center → System.
 
 ---
 

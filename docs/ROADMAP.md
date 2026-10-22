@@ -274,7 +274,8 @@ Repo: `C:\Venky\work\pc_cleaner` (or `apps/pc-cleaner`)
 - [ ] Rename internal names (`pcos-*` commands, `org.pcos.*` polkit ids, `/etc/pcos`, `/usr/share/pcos`) with migration of existing settings: its own change, after the hardware tests
 
 ## Phase 12: First-boot setup and polish (M)
-- [ ] First-boot flow (DESIGN §10): admin mode, keys, disk unlock, recovery key, privacy preset, network trust, MOK enrollment, phone
+- [x] First-boot flow (DESIGN §10): **Welcome to RudramOS** (`pcos-setup`, `pcos_control/setup.py` + `firstboot.py`): welcome → admin mode and keys → disk unlock and recovery key → privacy preset → network trust → graphics driver + MOK instructions → phone → BIOS recommendations → done. Reuses Control Center's pages; steps without anything to do are skipped; opens for admins at first login after GNOME Initial Setup, until Finish / Skip; app-grid entry and Control Center → System to run again; tests
+- [ ] Check the setup on a fresh install (VM, then the 1050 Ti PC)
 - [x] **Look and feel** from the Shiva-eyes-and-trishul art (images made by `tools/make-branding.py`, `tools/make-plymouth-frames.py`):
   - [x] Boot animation: Plymouth script theme `rudramos` (40 frames at 70 ms, feathered into black, disk password prompt and messages in the same style), in every variant's initramfs; `rhgb quiet`
   - [x] Trishul emblem (vector, with bindu and damaru): `rudramos-logo` icon in all sizes + symbolic, `LOGO=` in os-release (Settings → About), login screen logo, top-bar Logo Menu icon

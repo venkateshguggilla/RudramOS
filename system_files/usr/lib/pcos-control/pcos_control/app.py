@@ -21,6 +21,8 @@ from gi.repository import Adw, Gio, GLib, Gtk  # noqa: E402
 from . import status  # noqa: E402
 
 APP_ID = "org.pcos.Control"
+CONTROL_CENTER = "/usr/bin/pcos-control"
+SETUP = "/usr/bin/pcos-setup"
 TERMINAL_RUN = "/usr/libexec/pcos/pcos-terminal-run"
 APP_GUARD = "/usr/bin/pcos-app-guard"
 BROWSER_EXTENSIONS = "/usr/bin/pcos-browser-extensions"
@@ -633,6 +635,8 @@ class Window(Adw.ApplicationWindow):
                        "For Secure Boot, TPM and start-up order. Save your work first.",
                        "Restart…", self._confirm_firmware_restart),
         ]
+        rows.append(button_row("Welcome to RudramOS", "Go through the first-time setup again, step by step.", "Open",
+                               lambda: Gio.Subprocess.new([SETUP], Gio.SubprocessFlags.NONE)))
         return [group("RudramOS", "Updates are on the Updates page.", rows), group("Start-up", "", start_up)]
 
     # ---- actions ----
