@@ -276,10 +276,9 @@ GSCONNECT=/usr/share/gnome-shell/extensions/gsconnect@andyholmes.github.io
 python3 /ctx/gnome-list-add.py /etc/dconf/db/distro.d/zz8-rudramos-extensions enabled-extensions gsconnect@andyholmes.github.io
 dconf update
 # Phone screen: scrcpy's own build (Containerfile scrcpy stage) behind pcos-phone. adb talks to
-# the phone over USB once USBGuard and the phone allow it; android-udev-rules gives the logged-in
-# user access to the phone's debugging interface.
-dnf5 install -y android-udev-rules
-ls /usr/lib/udev/rules.d/*android*.rules
+# the phone over USB once USBGuard and the phone allow it; 70-rudramos-android.rules gives the
+# logged-in user access to the phone's debugging interface (Fedora has no android-udev-rules).
+udevadm verify --resolve-names=never /usr/lib/udev/rules.d/70-rudramos-android.rules
 install -d /usr/lib/scrcpy
 install -m0755 /ctx/apps/scrcpy/scrcpy /ctx/apps/scrcpy/adb /usr/lib/scrcpy/
 install -m0644 /ctx/apps/scrcpy/scrcpy-server /ctx/apps/scrcpy/disconnected.png /ctx/apps/scrcpy/LICENSE /usr/lib/scrcpy/

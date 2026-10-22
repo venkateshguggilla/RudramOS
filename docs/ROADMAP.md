@@ -256,7 +256,7 @@ Repo: `C:\Venky\work\pc_cleaner` (or `apps/pc-cleaner`)
 ## Phase 11: Android phone integration (Track D, S–M)
 - [x] GSConnect (Bluefin ships it) switched on by default: `enabled-extensions` merged with the base image's list at build time (`build_files/gnome-list-add.py`, also used for the dock); tests
 - [x] Firewall: KDE Connect ports only in `pcos-home` (`pcos-network share phone`, done in Phase 5); the Phone page offers it and warns when the current network is Public
-- [x] scrcpy 5.0.1 (upstream Linux build with its server and adb, pinned by SHA-256 in a Containerfile stage) + `pcos-phone` (`screen`, `devices`, `pair`, `connect`, `disconnect`), **Phone Screen** in the app grid, `android-udev-rules` for USB access; tests
+- [x] scrcpy 5.0.1 (upstream Linux build with its server and adb, pinned by SHA-256 in a Containerfile stage) + `pcos-phone` (`screen`, `devices`, `pair`, `connect`, `disconnect`), **Phone Screen** in the app grid, `70-rudramos-android.rules` for USB access (adb/fastboot interface class, any maker); tests
 - [x] Control Center **Phone** page: Phone link switch, Allow on Home networks, Pair…, per-phone permissions (GSConnect plugins via `disabled-plugins`), Unpair, Show screen per phone, Wi-Fi pairing and connect; status tests
 - [ ] Check with a real Android phone (the "Done when" list below), on the 1050 Ti PC
 - [ ] Experiment: Bluetooth HFP hands-free calls through PipeWire on the test phone; ship as "experimental" only if reliable

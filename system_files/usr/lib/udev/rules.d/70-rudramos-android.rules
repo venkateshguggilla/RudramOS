@@ -1,0 +1,12 @@
+# RudramOS: the logged-in user may use an Android phone's debugging interface (adb, for Phone
+# Screen / scrcpy) and fastboot, for any phone maker. Matched by interface class instead of a
+# list of vendor ids: ff/42/01 = adb, ff/42/03 = fastboot. The phone still has to be approved
+# in the RudramOS USB prompt (USBGuard) and allowed on the phone itself.
+# Before 73-seat-late.rules, which turns the uaccess tag into an ACL for the active user.
+ACTION!="add|change", GOTO="rudramos_android_end"
+SUBSYSTEM!="usb", GOTO="rudramos_android_end"
+ENV{DEVTYPE}!="usb_device", GOTO="rudramos_android_end"
+IMPORT{builtin}="usb_id"
+ENV{ID_USB_INTERFACES}=="*:ff4201:*", TAG+="uaccess"
+ENV{ID_USB_INTERFACES}=="*:ff4203:*", TAG+="uaccess"
+LABEL="rudramos_android_end"
