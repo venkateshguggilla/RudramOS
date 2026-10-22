@@ -44,7 +44,7 @@ chmod 0755 /usr/libexec/pcos/pcos-grub-theme /usr/libexec/pcos/pcos-image-rename
 systemctl enable pcos-grub-theme.service
 # Dock: the base image's apps plus Mission Center (task manager: running apps and processes,
 # End task, CPU/GPU/memory/disk use). Preinstalled from Flathub like Bazaar.
-python3 /ctx/dock-favorites.py /etc/dconf/db/distro.d/zz8-rudramos-dock io.missioncenter.MissionCenter.desktop
+python3 /ctx/gnome-list-add.py /etc/dconf/db/distro.d/zz8-rudramos-dock favorite-apps io.missioncenter.MissionCenter.desktop
 # After the rename from pcos: move installed PCs to the rudramos image names once those are available
 systemctl enable pcos-image-rename.timer
 
@@ -265,6 +265,31 @@ python3 -m compileall -q /usr/lib/pc-cleaner
 PYTHONPATH=/usr/lib/pc-cleaner/vendor:/usr/lib/pc-cleaner python3 -B -c 'import pccleaner.gui'
 /usr/bin/pc-cleaner list >/dev/null
 if command -v desktop-file-validate >/dev/null; then desktop-file-validate /usr/share/applications/pc-cleaner.desktop; fi
+
+### Android phone (docs/DESIGN.md §9.3). Control Center → Phone.
+# Phone link: GSConnect (KDE Connect protocol) for notifications, texts, calls, files and
+# clipboard. Bluefin ships it; switch it on by default, keeping Bluefin's other extensions. Its
+# network ports open only on Home networks (pcos-network share phone).
+GSCONNECT=/usr/share/gnome-shell/extensions/gsconnect@andyholmes.github.io
+[[ -f "${GSCONNECT}/metadata.json" ]] || dnf5 install -y gnome-shell-extension-gsconnect
+[[ -f "${GSCONNECT}/metadata.json" ]] || { echo "ERROR: GSConnect is not installed" >&2; exit 1; }
+python3 /ctx/gnome-list-add.py /etc/dconf/db/distro.d/zz8-rudramos-extensions enabled-extensions gsconnect@andyholmes.github.io
+dconf update
+# Phone screen: scrcpy's own build (Containerfile scrcpy stage) behind pcos-phone. adb talks to
+# the phone over USB once USBGuard and the phone allow it; android-udev-rules gives the logged-in
+# user access to the phone's debugging interface.
+dnf5 install -y android-udev-rules
+ls /usr/lib/udev/rules.d/*android*.rules
+install -d /usr/lib/scrcpy
+install -m0755 /ctx/apps/scrcpy/scrcpy /ctx/apps/scrcpy/adb /usr/lib/scrcpy/
+install -m0644 /ctx/apps/scrcpy/scrcpy-server /ctx/apps/scrcpy/disconnected.png /ctx/apps/scrcpy/LICENSE /usr/lib/scrcpy/
+install -Dm0644 /ctx/apps/scrcpy/scrcpy.1 /usr/share/man/man1/scrcpy.1
+install -Dm0644 /ctx/apps/scrcpy/scrcpy.png /usr/share/icons/hicolor/256x256/apps/rudramos-phone-screen.png
+gtk-update-icon-cache -q -t -f /usr/share/icons/hicolor || true
+chmod 0755 /usr/bin/pcos-phone
+/usr/lib/scrcpy/scrcpy --version
+/usr/lib/scrcpy/adb version
+if command -v desktop-file-validate >/dev/null; then desktop-file-validate /usr/share/applications/rudramos-phone-screen.desktop; fi
 
 ### Check the Control Center loads (imports GTK/Adw, no display needed)
 python3 -B -c 'import sys; sys.path.insert(0, "/usr/lib/pcos-control"); import pcos_control.app'

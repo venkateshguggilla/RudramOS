@@ -35,6 +35,18 @@ RUN git init -q . \
     && mkdir -p /out/pc-cleaner \
     && cp -r pccleaner tests assets packaging /out/pc-cleaner/
 
+# scrcpy (https://github.com/Genymobile/scrcpy, Apache-2.0): its own Linux build, with the
+# phone-side server and adb. "Phone Screen" / Control Center → Phone. Pinned by checksum.
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS scrcpy
+ARG SCRCPY_VERSION="5.0.1"
+ARG SCRCPY_SHA256="9f969d30cc574816077edecda65719c1c70b0aee1df1ba5fa00779ac07b8fd6e"
+WORKDIR /src
+RUN curl -fsSLo scrcpy.tar.gz \
+       "https://github.com/Genymobile/scrcpy/releases/download/v${SCRCPY_VERSION}/scrcpy-linux-x86_64-v${SCRCPY_VERSION}.tar.gz" \
+    && echo "${SCRCPY_SHA256}  scrcpy.tar.gz" | sha256sum -c - \
+    && mkdir -p /out/scrcpy \
+    && tar xzf scrcpy.tar.gz --strip-components=1 -C /out/scrcpy
+
 # Build scripts and system files are mounted at build time, not copied into the final image
 FROM scratch AS ctx
 COPY build_files /
@@ -42,6 +54,7 @@ COPY system_files /system_files
 COPY keys /keys
 COPY --from=temp-monitor /out /apps
 COPY --from=pc-cleaner /out /apps
+COPY --from=scrcpy /out /apps
 
 FROM ${BASE_IMAGE}:${BASE_TAG}
 

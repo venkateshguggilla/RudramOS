@@ -7,6 +7,7 @@ secret or touch a security key open a terminal (pcos-terminal-run).
 
 from __future__ import annotations
 
+import re
 import sys
 import threading
 import time
@@ -54,6 +55,22 @@ GPU_SWITCH = "/usr/libexec/pcos/pcos-gpu-switch"
 UPDATE = "/usr/libexec/pcos/pcos-update"
 APP_STORE = "/usr/libexec/pcos/pcos-app-store"
 GRUB_THEME = "/usr/libexec/pcos/pcos-grub-theme"
+PHONE = "/usr/bin/pcos-phone"
+
+# GSConnect plugins a paired phone can use, in the order shown on the Phone page
+PHONE_PERMISSIONS = [
+    ("notification", "Notifications", "See the phone's notifications here and reply to them"),
+    ("sms", "Text messages", "Read and send SMS from this PC"),
+    ("telephony", "Calls", "Incoming call alerts; music pauses during a call"),
+    ("share", "Files and links", "Send files and links both ways"),
+    ("clipboard", "Shared clipboard", "Copy on one, paste on the other"),
+    ("sftp", "Browse phone files", "Open the phone's storage in Files"),
+    ("battery", "Battery", "Show the phone's battery level"),
+    ("findmyphone", "Find my phone", "Make the phone ring from this PC"),
+    ("mpris", "Media controls", "Control music and videos on this PC from the phone"),
+    ("mousepad", "Control this PC", "The phone can move the mouse and type here"),
+    ("runcommand", "Run commands on this PC", "The phone can start commands set up in GSConnect"),
+]
 ONLINE_CHECK_EVERY = 600  # seconds between update checks while the window is open
 
 
@@ -99,6 +116,7 @@ class Window(Adw.ApplicationWindow):
             ("updates", "Updates", "software-update-available-symbolic"),
             ("security", "Security", "security-high-symbolic"),
             ("apps", "Apps", "application-x-executable-symbolic"),
+            ("phone", "Phone", "phone-symbolic"),
             ("network", "Network", "network-wireless-symbolic"),
             ("usb", "USB", "drive-removable-media-symbolic"),
             ("privacy", "Privacy", "preferences-system-privacy-symbolic"),
@@ -133,6 +151,7 @@ class Window(Adw.ApplicationWindow):
         self._operation: status.Operation | None = None  # driver install / update running now
         self._poll_id = 0
         self._started_here = False  # a driver install started from this window, maybe still at the prompt
+        self._open_phones: set[str] = set()  # paired phones whose permissions are shown
         self.refresh()
 
     def _poll(self) -> bool:
@@ -180,6 +199,7 @@ class Window(Adw.ApplicationWindow):
                 "admin": status.admin_status(),
                 "apps": status.apps_status(),
                 "network": status.network_status(),
+                "phone": status.phone_status(),
                 "usb": status.usb_status(),
                 "privacy": status.privacy_status(),
                 "disk": status.disk_status(),
@@ -206,6 +226,7 @@ class Window(Adw.ApplicationWindow):
         self._set_groups("updates", self._updates(data["updates"]))
         self._set_groups("security", self._security(data["admin"]))
         self._set_groups("apps", self._apps(data["apps"]))
+        self._set_groups("phone", self._phone(data["phone"], data["network"]))
         self._set_groups("network", self._network(data["network"]))
         self._set_groups("usb", self._usb(data["usb"]))
         self._set_groups("privacy", self._privacy(data["privacy"]))
@@ -329,6 +350,90 @@ class Window(Adw.ApplicationWindow):
             group("App approval", "Like Gatekeeper on a Mac: you decide what runs.", approval),
             group("Browser extensions", "Firefox can install only the extensions approved here. Paste a link and press Enter.", ext_rows),
         ]
+
+    def _phone(self, s: status.PhoneStatus, net: status.NetworkStatus) -> list[Adw.PreferencesGroup]:
+        groups = []
+        link: list[Gtk.Widget] = []
+        if not s.installed:
+            link.append(info_row("Phone link isn't installed", "GSConnect is missing from this version of RudramOS."))
+        else:
+            on = Adw.SwitchRow(title="Phone link", subtitle="Notifications, texts, calls, files and clipboard",
+                               active=bool(s.enabled))
+            on.connect("notify::active", lambda r, _p: self._user_cmd(
+                ["gnome-extensions", "enable" if r.get_active() else "disable", status.GSCONNECT],
+                "Phone link is on." if r.get_active() else "Phone link is off."))
+            link.append(on)
+            if "phone" not in net.shared:
+                link.append(button_row("Allow phones on Home networks",
+                                       "Phones can't reach this PC yet. They will only ever be allowed on networks you mark Home.",
+                                       "Allow…", lambda: self._privileged([NETWORK, "share", "phone", "on"],
+                                                                          "Phones can connect on Home networks."),
+                                       suggested=True))
+            elif not any(n.trusted for n in net.networks):
+                link.append(info_row("This network is Public",
+                                     "Phones can't connect here. Mark your home Wi-Fi as Home on the Network page."))
+            link.append(button_row("Pair a phone",
+                                   "Install KDE Connect on the phone (Play Store or F-Droid), open it on the same Wi-Fi, "
+                                   "then pair here. Both sides must accept.",
+                                   "Pair…", lambda: self._user_cmd(["gnome-extensions", "prefs", status.GSCONNECT], ""),
+                                   sensitive=bool(s.enabled)))
+        groups.append(group("Phone link", "Your Android phone and this PC, like Continuity on a Mac. "
+                                          "Works only on Home networks.", link))
+
+        if s.paired:
+            phones: list[Gtk.Widget] = []
+            for p in s.paired:
+                # Pages are rebuilt on every refresh: keep the phones that were open, open
+                row = Adw.ExpanderRow(title=p.name, subtitle=f"Paired {p.type}. Choose what it may do.",
+                                      expanded=p.id in self._open_phones)
+                row.connect("notify::expanded", lambda r, _p, i=p.id: (
+                    self._open_phones.add(i) if r.get_expanded() else self._open_phones.discard(i)))
+                for plugin, title, subtitle in PHONE_PERMISSIONS:
+                    if p.supported and plugin not in p.supported:
+                        continue
+                    sw = Adw.SwitchRow(title=title, subtitle=subtitle, active=plugin not in p.disabled)
+                    sw.connect("notify::active", lambda r, _p, ph=p, pl=plugin: self._set_permission(ph, pl, r.get_active()))
+                    row.add_row(sw)
+                row.add_row(button_row("Unpair", "The phone has to be paired again to connect.", "Unpair",
+                                       lambda ph=p: self._confirm(f"Unpair {ph.name}?",
+                                                                  "It won't be able to connect until you pair it again.",
+                                                                  "Unpair", lambda: self._unpair(ph), destructive=True)))
+                phones.append(row)
+            groups.append(group("Paired phones", "", phones))
+
+        screens: list[Gtk.Widget] = []
+        for d in s.screens:
+            where = "USB" if d.transport == "usb" else "Wi-Fi"
+            if d.state == "unauthorized":
+                screens.append(info_row(d.model, f"{where}: tap Allow on the phone (USB debugging), then refresh."))
+                continue
+            if d.state != "device":
+                screens.append(info_row(d.model, f"{where}: not responding. Unplug it or reconnect."))
+                continue
+            row = button_row(d.model, f"Connected over {where}", "Show screen",
+                             lambda serial=d.serial: self._show_screen(serial), suggested=True)
+            if d.transport == "wifi":
+                stop = Gtk.Button(label="Disconnect", valign=Gtk.Align.CENTER)
+                stop.connect("clicked", lambda *_, serial=d.serial: self._user_cmd(
+                    [PHONE, "disconnect", serial], "Phone disconnected."))
+                row.add_suffix(stop)
+            screens.append(row)
+        if not screens:
+            screens.append(info_row(
+                "No phone found",
+                "On the phone: Settings → About phone → tap Build number 7 times. Then Developer options → USB debugging on. "
+                "Plug it in, approve it in the USB prompt and tap Allow on the phone."))
+        pair = Adw.EntryRow(title="Wi-Fi pairing: address and code, e.g. 192.168.1.20:37099 123456")
+        pair.set_show_apply_button(True)
+        pair.connect("apply", lambda e: self._pair_wifi(e.get_text()))
+        connect = Adw.EntryRow(title="Connect over Wi-Fi: address, e.g. 192.168.1.20:41235")
+        connect.set_show_apply_button(True)
+        connect.connect("apply", lambda e: self._user_cmd(
+            [PHONE, "connect", e.get_text().strip()], "Phone connected. Press Show screen."))
+        groups.append(group("Phone screen", "See and use your phone in a window, with its sound. "
+                                            "Over Wi-Fi: Developer options → Wireless debugging → Pair device with pairing code.",
+                            [*screens, pair, connect]))
+        return groups
 
     def _network(self, s: status.NetworkStatus) -> list[Adw.PreferencesGroup]:
         net_rows: list[Gtk.Widget] = []
@@ -583,6 +688,66 @@ class Window(Adw.ApplicationWindow):
             elif p.get_exit_status() not in (126, 127):  # 126/127: approval cancelled
                 self._toast((err or "Something went wrong.").strip().splitlines()[-1])
             self.refresh(check_online=check_online)
+
+        proc.communicate_utf8_async(None, None, done)
+
+    def _user_cmd(self, argv: list[str], ok_text: str) -> None:
+        """Runs a command as the user (no approval needed), toasts the result, then refreshes."""
+        try:
+            proc = Gio.Subprocess.new(argv, Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_MERGE)
+        except GLib.Error as e:
+            self._toast(e.message)
+            return
+
+        def done(p, result):
+            try:
+                out, _ = p.communicate_utf8_finish(result)
+                ok = p.get_successful()
+            except GLib.Error as e:
+                ok, out = False, e.message
+            if ok and ok_text:
+                self._toast(ok_text)
+            elif not ok:
+                self._toast((out or "Something went wrong.").strip().splitlines()[-1])
+            self.refresh()
+
+        proc.communicate_utf8_async(None, None, done)
+
+    def _set_permission(self, phone: status.PairedPhone, plugin: str, allowed: bool) -> None:
+        phone.disabled = [p for p in phone.disabled if p != plugin] + ([] if allowed else [plugin])
+        value = "[" + ", ".join(f"'{p}'" for p in phone.disabled) + "]" if phone.disabled else "@as []"
+        self._user_cmd(["dconf", "write", f"/org/gnome/shell/extensions/gsconnect/device/{phone.id}/disabled-plugins", value], "")
+
+    def _unpair(self, phone: status.PairedPhone) -> None:
+        # GSConnect's D-Bus object path for a device: its id with non-word characters as "_"
+        path = "/org/gnome/Shell/Extensions/GSConnect/Device/" + re.sub(r"\W+", "_", phone.id, flags=re.ASCII)
+        try:
+            Gio.bus_get_sync(Gio.BusType.SESSION, None).call_sync(
+                "org.gnome.Shell.Extensions.GSConnect", path, "org.gtk.Actions", "Activate",
+                GLib.Variant("(sava{sv})", ("unpair", [], {})), None, Gio.DBusCallFlags.NONE, 10000, None)
+            self._toast(f"{phone.name} unpaired.")
+        except GLib.Error:
+            self._toast("Couldn't unpair: is Phone link on?")
+        self.refresh()
+
+    def _pair_wifi(self, text: str) -> None:
+        parts = text.split()
+        if len(parts) != 2:
+            self._toast("Type the address and the 6-digit code shown on the phone, with a space between.")
+            return
+        self._user_cmd([PHONE, "pair", *parts], "Paired. Now type the address from the Wireless debugging screen below.")
+
+    def _show_screen(self, serial: str) -> None:
+        proc = Gio.Subprocess.new([PHONE, "screen", serial], Gio.SubprocessFlags.STDERR_PIPE)
+
+        def done(p, result):
+            try:
+                _, _, err = p.communicate_utf8_finish(result)
+            except GLib.Error as e:
+                err = e.message
+            # 3: pcos-phone already said why in a notification
+            if not p.get_successful() and p.get_exit_status() != 3:
+                self._toast((err or "The phone screen closed unexpectedly.").strip().splitlines()[-1])
 
         proc.communicate_utf8_async(None, None, done)
 

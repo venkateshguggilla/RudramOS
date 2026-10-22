@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Phone Screen
+GenericName=Android Screen Mirroring
+Comment=See and control your Android phone in a window, over USB or Wi-Fi
+Exec=/usr/bin/pcos-phone screen
+Icon=rudramos-phone-screen
+Terminal=false
+Categories=Utility;
+Keywords=android;phone;mirror;scrcpy;adb;screen;
+StartupNotify=false

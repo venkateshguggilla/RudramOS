@@ -1,11 +1,11 @@
-"""Tests for build_files/dock-favorites.py (pinning RudramOS apps after the base image's dock)."""
+"""Tests for build_files/gnome-list-add.py (dock apps and extensions after the base image's own)."""
 import importlib.util
 import os
 import tempfile
 import unittest
 
 spec = importlib.util.spec_from_file_location(
-    "dock_favorites", os.path.join(os.path.dirname(__file__), "..", "build_files", "dock-favorites.py"))
+    "gnome_list_add", os.path.join(os.path.dirname(__file__), "..", "build_files", "gnome-list-add.py"))
 dock = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(dock)
 
@@ -38,12 +38,21 @@ class DockTests(unittest.TestCase):
         self.write("04-bluefin", "[org/gnome/desktop/interface]\nx=1\n[org/gnome/shell]\nfavorite-apps=['org.mozilla.firefox.desktop', 'org.gnome.Ptyxis.desktop']\n")
         ours = os.path.join(self.dir, "zz8-rudramos-dock")
         self.write("zz8-rudramos-dock", "[org/gnome/shell]\nfavorite-apps=['stale.desktop']\n")
-        self.assertEqual(dock.from_dconf_defaults(skip=ours), ["org.mozilla.firefox.desktop", "org.gnome.Ptyxis.desktop"])
+        self.assertEqual(dock.from_dconf_defaults("favorite-apps", skip=ours), ["org.mozilla.firefox.desktop", "org.gnome.Ptyxis.desktop"])
 
     def test_no_dconf_default(self):
         self.write("50-other", "[org/gnome/desktop/media-handling]\nautorun-never=true\n")
-        self.assertIsNone(dock.from_dconf_defaults(skip=os.path.join(self.dir, "zz8")))
+        self.assertIsNone(dock.from_dconf_defaults("favorite-apps", skip=os.path.join(self.dir, "zz8")))
 
     def test_keyfile_is_valid_dconf(self):
-        text = dock.keyfile(["a.desktop", "b.desktop"])
+        text = dock.keyfile("favorite-apps", ["a.desktop", "b.desktop"])
         self.assertIn("[org/gnome/shell]\nfavorite-apps=['a.desktop', 'b.desktop']\n", text)
+
+    def test_other_keys_in_the_same_section_are_separate(self):
+        self.write("04-bluefin", "[org/gnome/shell]\nfavorite-apps=['a.desktop']\n"
+                                 "enabled-extensions=['logomenu@aryan_k', 'blur-my-shell@aunetx']\n")
+        ours = os.path.join(self.dir, "zz8-rudramos-extensions")
+        self.assertEqual(dock.from_dconf_defaults("enabled-extensions", skip=ours),
+                         ["logomenu@aryan_k", "blur-my-shell@aunetx"])
+        self.assertIsNone(dock.from_dconf_defaults("disabled-extensions", skip=ours))
+        self.assertIn("enabled-extensions=['x@y']", dock.keyfile("enabled-extensions", ["x@y"]))

@@ -1,0 +1,85 @@
+#!/bin/bash
+# Phone screen for RudramOS: shows an Android phone's screen in a window (scrcpy) over USB or
+# Wi-Fi, and pairs phones for Wi-Fi. No admin rights needed. Used by "Phone Screen" in the app
+# grid and by Control Center → Phone. Notifications, texts, calls and files are GSConnect's job.
+#
+# Usage: pcos-phone screen [SERIAL]          show the phone's screen (the first phone if no SERIAL)
+#        pcos-phone devices                  phones found: SERIAL<TAB>STATE<TAB>usb|wifi<TAB>MODEL
+#        pcos-phone pair ADDRESS:PORT CODE   Wi-Fi pairing (phone: Wireless debugging → Pair with code)
+#        pcos-phone connect ADDRESS:PORT     connect over Wi-Fi (the address on the Wireless debugging screen)
+#        pcos-phone disconnect [ADDRESS:PORT]
+set -uo pipefail
+
+# scrcpy's own Linux build (scrcpy, its phone-side server and adb), pinned in build.sh
+DIR="${PCOS_SCRCPY_DIR:-/usr/lib/scrcpy}"
+export ADB="${DIR}/adb" SCRCPY_SERVER_PATH="${DIR}/scrcpy-server"
+NOTIFY=(notify-send --app-name="Phone Screen" --icon=phone)
+
+usage() {
+    sed -n '5,9p' "$0" | sed 's/^# \{0,1\}//' >&2
+    exit 2
+}
+
+# "adb devices -l" -> SERIAL STATE TRANSPORT MODEL (tab separated), one phone per line
+devices() {
+    "${ADB}" devices -l 2>/dev/null | awk '
+        NR == 1 || NF < 2 { next }
+        {
+            transport = ($0 ~ / usb:/) ? "usb" : "wifi"
+            model = ""
+            for (i = 3; i <= NF; i++) if ($i ~ /^model:/) { model = substr($i, 7); gsub(/_/, " ", model) }
+            if (model == "") model = "Android phone"
+            printf "%s\t%s\t%s\t%s\n", $1, $2, transport, model
+        }'
+}
+
+valid_address() {
+    [[ "$1" =~ ^[A-Za-z0-9.:_%-]+:[0-9]{1,5}$ ]] || { echo "Not an address:port: $1" >&2; exit 2; }
+}
+
+case "${1:-}" in
+devices)
+    devices
+    ;;
+screen)
+    want="${2:-}"
+    line=""
+    while IFS=$'\t' read -r serial state transport model; do
+        [[ -n "${want}" && "${serial}" != "${want}" ]] && continue
+        if [[ "${state}" == unauthorized ]]; then
+            "${NOTIFY[@]}" "Allow this PC on your phone" \
+                "Your phone is asking whether to allow USB debugging from this computer. Tap Allow, then try again."
+            exit 3
+        fi
+        [[ "${state}" == device ]] && { line="${serial}"$'\t'"${model}"; break; }
+    done < <(devices)
+    if [[ -z "${line}" ]]; then
+        "${NOTIFY[@]}" "No phone found" \
+            "Turn on USB debugging on the phone (Developer options), plug it in and allow it, or pair it over Wi-Fi in Control Center → Phone."
+        exit 3
+    fi
+    exec "${DIR}/scrcpy" --serial="${line%%$'\t'*}" --window-title="${line#*$'\t'}" --stay-awake
+    ;;
+pair)
+    (( $# == 3 )) || usage
+    valid_address "$2"
+    [[ "$3" =~ ^[0-9]{6}$ ]] || { echo "The pairing code is the 6 digits shown on the phone" >&2; exit 2; }
+    "${ADB}" pair "$2" "$3"
+    ;;
+connect)
+    (( $# == 2 )) || usage
+    valid_address "$2"
+    out=$("${ADB}" connect "$2" 2>&1)
+    echo "${out}"
+    # adb prints "failed to connect" / "cannot connect" but still exits 0
+    grep -qiE "^(connected|already connected)" <<<"${out}"
+    ;;
+disconnect)
+    (( $# <= 2 )) || usage
+    [[ $# == 2 ]] && valid_address "$2"
+    "${ADB}" disconnect ${2:+"$2"}
+    ;;
+*)
+    usage
+    ;;
+esac

@@ -6,6 +6,7 @@ Paths are parameters so tests can point them at fake files.
 
 from __future__ import annotations
 
+import ast
 import json
 import os
 import re
@@ -379,3 +380,100 @@ def system_status(
     except (OSError, subprocess.SubprocessError, ValueError):
         pass
     return SystemStatus(name=name, build_date=_read(build_date_file), booted_image=booted, staged_image=staged)
+
+
+# ---- Phone (GSConnect for notifications/texts/calls/files, scrcpy for the screen) ----
+
+GSCONNECT = "gsconnect@andyholmes.github.io"
+
+
+@dataclass
+class PairedPhone:
+    id: str
+    name: str
+    type: str  # phone | tablet | laptop | desktop | ...
+    supported: list[str] = field(default_factory=list)  # GSConnect plugin names the phone offers
+    disabled: list[str] = field(default_factory=list)  # plugins switched off for this phone
+
+
+@dataclass
+class UsbPhone:
+    serial: str
+    state: str  # device | unauthorized | offline
+    transport: str  # usb | wifi
+    model: str
+
+
+@dataclass
+class PhoneStatus:
+    installed: bool
+    enabled: bool | None  # GSConnect switched on in this session; None = unknown
+    paired: list[PairedPhone] = field(default_factory=list)
+    screens: list[UsbPhone] = field(default_factory=list)  # phones scrcpy can show
+
+
+def _gvariant(value: str):
+    """A dconf value as dconf dump prints it: 'text', true/false, ['a', 'b'], @as []."""
+    value = value.strip()
+    if value.startswith("@as"):
+        value = value[3:].strip()
+    if value in ("true", "false"):
+        return value == "true"
+    try:
+        return ast.literal_eval(value)
+    except (ValueError, SyntaxError):
+        return value
+
+
+def parse_gsconnect_dump(text: str) -> list[PairedPhone]:
+    """Paired devices from `dconf dump /org/gnome/shell/extensions/gsconnect/`."""
+    sections: dict[str, dict[str, object]] = {}
+    current = None
+    for line in text.splitlines():
+        line = line.strip()
+        if line.startswith("[") and line.endswith("]"):
+            current = sections.setdefault(line[1:-1].strip("/"), {})
+        elif current is not None and "=" in line:
+            key, _, value = line.partition("=")
+            current[key.strip()] = _gvariant(value)
+    known = sections.get("", {}).get("devices", [])
+    phones = []
+    for dev_id in known if isinstance(known, list) else []:
+        s = sections.get(f"device/{dev_id}", {})
+        if s.get("paired") is not True:
+            continue
+        phones.append(PairedPhone(
+            id=dev_id, name=str(s.get("name") or "Phone"), type=str(s.get("type") or "phone"),
+            supported=[p for p in s.get("supported-plugins", []) if isinstance(p, str)],
+            disabled=[p for p in s.get("disabled-plugins", []) if isinstance(p, str)]))
+    return phones
+
+
+def phone_status(extensions_dir: str = "/usr/share/gnome-shell/extensions",
+                 phone_tool: str = "/usr/bin/pcos-phone", run=subprocess.run) -> PhoneStatus:
+    installed = os.path.isdir(os.path.join(extensions_dir, GSCONNECT))
+    enabled: bool | None = None
+    paired: list[PairedPhone] = []
+    if installed:
+        try:
+            info = run(["gnome-extensions", "info", GSCONNECT], capture_output=True, text=True, timeout=10).stdout
+            m = re.search(r"^\s*Enabled:\s*(\w+)", info, re.M)
+            enabled = m.group(1).lower() in ("yes", "true") if m else None
+        except (OSError, subprocess.SubprocessError):
+            pass
+        try:
+            dump = run(["dconf", "dump", "/org/gnome/shell/extensions/gsconnect/"],
+                       capture_output=True, text=True, timeout=10).stdout
+            paired = parse_gsconnect_dump(dump)
+        except (OSError, subprocess.SubprocessError):
+            pass
+    screens: list[UsbPhone] = []
+    try:
+        out = run([phone_tool, "devices"], capture_output=True, text=True, timeout=10).stdout
+        for line in out.splitlines():
+            parts = line.split("\t")
+            if len(parts) == 4:
+                screens.append(UsbPhone(*parts))
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return PhoneStatus(installed=installed, enabled=enabled, paired=paired, screens=screens)
