@@ -1,0 +1,57 @@
+---
+# Lists where the published image still shows the base system's names (Fedora, Bluefin, uBlue)
+# in places people see: os-release, boot entries, app names, login and terminal messages.
+# Read-only; run by hand from the Actions tab.
+name: Branding audit
+
+on:
+  workflow_dispatch:
+    inputs:
+      variant:
+        description: "Image variant"
+        default: rudramos
+        type: choice
+        options: [rudramos, rudramos-nvidia, rudramos-nvidia-legacy]
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Look for base-system names
+        env:
+          IMAGE: ghcr.io/${{ github.repository_owner }}/${{ inputs.variant }}:latest
+        run: |
+          IMAGE="${IMAGE,,}"
+          podman pull -q "${IMAGE}"
+          podman run --rm --entrypoint /bin/bash "${IMAGE}" -c '
+            show() { echo; echo "=== $*"; }
+            show os-release; cat /usr/lib/os-release
+            show release files; for f in /etc/*-release /usr/lib/*-release; do echo "$f: $(head -c 300 "$f" | tr "\n" " ")"; done
+            show hostname; cat /etc/hostname 2>/dev/null; grep -rh "^hostname\|DefaultHostname" /etc/NetworkManager 2>/dev/null
+            show issue and motd; head -5 /etc/issue /etc/issue.net /etc/motd 2>/dev/null; ls /etc/motd.d /usr/share/ublue-os/motd 2>/dev/null
+            show EFI and boot; ls -R /usr/lib/bootupd/updates/EFI 2>/dev/null | head -30; ls /usr/lib/ostree-boot 2>/dev/null
+            show plymouth; ls /usr/share/plymouth/themes; plymouth-set-default-theme 2>/dev/null
+            show pixmaps; ls /usr/share/pixmaps | grep -iE "fedora|bluefin|ublue|system-logo|logo" | head -40
+            show icons named after the base; find /usr/share/icons -iname "*fedora*" -o -iname "*bluefin*" -o -iname "*ublue*" | head -40
+            show backgrounds; ls /usr/share/backgrounds /usr/share/gnome-background-properties 2>/dev/null | head -60
+            show desktop files mentioning the base
+            grep -lisE "fedora|bluefin|ublue|universal blue" /usr/share/applications/*.desktop /etc/xdg/autostart/*.desktop 2>/dev/null
+            for f in $(grep -lisE "fedora|bluefin|ublue|universal blue" /usr/share/applications/*.desktop 2>/dev/null); do
+              echo "--- $f"; grep -iE "^(Name|GenericName|Comment|NoDisplay|Icon)(\[en.*\])?=" "$f"; done
+            show gnome-shell extensions; ls /usr/share/gnome-shell/extensions
+            show logo menu settings; grep -rhiE "fedora|bluefin" /usr/share/gnome-shell/extensions/logomenu@aryan_k/*.js 2>/dev/null | head -10
+            show dconf defaults mentioning the base; grep -rniE "fedora|bluefin|ublue" /etc/dconf/db/*.d /usr/share/glib-2.0/schemas/*.override 2>/dev/null | head -60
+            show fastfetch; ls /usr/share/fastfetch* /usr/share/ublue-os 2>/dev/null | head -40; grep -rliE "bluefin" /usr/share/ublue-os 2>/dev/null | head -30
+            show shell profile messages; grep -rlisE "bluefin|ublue" /etc/profile.d /usr/share/bash-completion 2>/dev/null | head; ls /etc/profile.d
+            show just recipes; ls /usr/share/ublue-os/just 2>/dev/null; which ujust bluefin-cli 2>/dev/null
+            show gdm; grep -rhiE "logo|banner" /etc/dconf/db/gdm.d 2>/dev/null
+            show anaconda product; cat /usr/lib/os-release | grep -E "^(NAME|ID|VARIANT|VERSION)="
+            show flatpak remotes; ls /etc/flatpak/remotes.d 2>/dev/null
+            show sysctl hostname / systemd defaults; grep -rh "Hostname\|hostname" /usr/lib/systemd/system.conf.d 2>/dev/null | head
+            show yafti or welcome apps; ls /usr/share/ublue-os/firstboot 2>/dev/null; ls /etc/skel /etc/skel/.config 2>/dev/null
+            show gnome about page logo; ls /usr/share/icons/hicolor/scalable/apps | grep -iE "fedora|bluefin|logo|ublue" | head
+            show rpm names with fedora logos; rpm -qa | grep -iE "logos|release|branding|bluefin|ublue" | sort
+          '
