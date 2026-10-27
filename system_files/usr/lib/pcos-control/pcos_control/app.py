@@ -107,10 +107,15 @@ def group(title: str, description: str, rows: list[Gtk.Widget]) -> Adw.Preferenc
 
 class Window(Adw.ApplicationWindow):
     def __init__(self, **kwargs):
-        super().__init__(title="RudramOS Control Center", default_width=780, default_height=660, **kwargs)
+        super().__init__(title="RudramOS Control Center", default_width=1000, default_height=700, **kwargs)
         self.stack = Adw.ViewStack()
         self.pages: dict[str, Adw.PreferencesPage] = {}
         self.groups: dict[str, list[Adw.PreferencesGroup]] = {}
+        # Pages in a sidebar, like GNOME Settings (ten names don't fit as tabs)
+        sidebar = Gtk.ListBox(selection_mode=Gtk.SelectionMode.SINGLE)
+        sidebar.add_css_class("navigation-sidebar")
+        order: list[str] = []
+        titles: dict[str, str] = {}
         for name, title, icon in (
             ("updates", "Updates", "software-update-available-symbolic"),
             ("security", "Security", "security-high-symbolic"),
@@ -127,17 +132,45 @@ class Window(Adw.ApplicationWindow):
             self.pages[name] = page
             self.groups[name] = []
             self.stack.add_titled_with_icon(page, name, title, icon)
+            order.append(name)
+            titles[name] = title
+            item = Gtk.Box(spacing=12, margin_top=6, margin_bottom=6, margin_start=6, margin_end=6)
+            item.append(Gtk.Image(icon_name=icon))
+            item.append(Gtk.Label(label=title, xalign=0))
+            sidebar.append(Gtk.ListBoxRow(child=item))
+
+        sidebar_header = Adw.HeaderBar()
+        sidebar_header.set_title_widget(Adw.WindowTitle(title="Control Center"))
+        sidebar_view = Adw.ToolbarView(content=Gtk.ScrolledWindow(child=sidebar, hscrollbar_policy=Gtk.PolicyType.NEVER))
+        sidebar_view.add_top_bar(sidebar_header)
 
         header = Adw.HeaderBar()
-        header.set_title_widget(Adw.ViewSwitcher(stack=self.stack, policy=Adw.ViewSwitcherPolicy.WIDE))
         refresh = Gtk.Button(icon_name="view-refresh-symbolic", tooltip_text="Refresh")
         refresh.connect("clicked", lambda *_: self.refresh())
         header.pack_end(refresh)
-
         self.toasts = Adw.ToastOverlay(child=self.stack)
-        toolbar = Adw.ToolbarView(content=self.toasts)
-        toolbar.add_top_bar(header)
-        self.set_content(toolbar)
+        content_view = Adw.ToolbarView(content=self.toasts)
+        content_view.add_top_bar(header)
+        content = Adw.NavigationPage(title=titles[order[0]], child=content_view)
+
+        split = Adw.NavigationSplitView(sidebar=Adw.NavigationPage(title="Control Center", child=sidebar_view),
+                                        content=content, min_sidebar_width=200, max_sidebar_width=240)
+        self.set_content(split)
+
+        def page_chosen(_list, row):
+            if row is not None and self.stack.get_visible_child_name() != order[row.get_index()]:
+                self.stack.set_visible_child_name(order[row.get_index()])
+
+        def page_shown(*_):
+            name = self.stack.get_visible_child_name()
+            content.set_title(titles.get(name, ""))
+            row = sidebar.get_row_at_index(order.index(name)) if name in order else None
+            if row is not None and sidebar.get_selected_row() is not row:
+                sidebar.select_row(row)
+
+        sidebar.connect("row-selected", page_chosen)
+        self.stack.connect("notify::visible-child-name", page_shown)
+        page_shown()
 
         # Refresh when the window comes back into focus, e.g. after a dialog or another app changed something
         self.connect("notify::is-active", lambda *_: self.refresh() if self.is_active() else None)
@@ -749,7 +782,7 @@ class Window(Adw.ApplicationWindow):
 
         def done(p, result):
             try:
-                out, _ = p.communicate_utf8_finish(result)
+                _, out, _ = p.communicate_utf8_finish(result)
                 ok = p.get_successful()
             except GLib.Error as e:
                 ok, out = False, e.message

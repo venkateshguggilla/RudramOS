@@ -293,7 +293,7 @@ def show_list(parent: Gtk.Widget, title: str, description: str, argv: list[str],
 
         def done(p, result):
             try:
-                out, _ = p.communicate_utf8_finish(result)
+                _, out, _ = p.communicate_utf8_finish(result)
             except GLib.Error as e:
                 fill(None, e.message)
                 return
