@@ -66,5 +66,9 @@ jobs:
             echo "----- uwelcome"; file /usr/bin/uwelcome 2>/dev/null; grep -n -i "bluefin\|welcome" /usr/bin/uwelcome 2>/dev/null | head -20
             echo "----- ublue-fastfetch"; cat /usr/bin/ublue-fastfetch 2>/dev/null | head -40
             echo "----- ublue-image-info"; cat /usr/bin/ublue-image-info.sh 2>/dev/null | head -30
+            echo "----- dynamic wallpaper hook"; cat /usr/share/ublue-os/user-setup.hooks.d/20-dynamic-wallpaper.sh 2>/dev/null | head -40
+            echo "----- fastfetch settings"; cat /etc/ublue-os/fastfetch.json 2>/dev/null; ls /usr/share/ublue-os/fastfetch 2>/dev/null | head
+            echo "----- fastfetch tail"; tail -40 /usr/share/ublue-os/fastfetch.jsonc
+            echo "----- symbolic logo"; find /usr/share/icons -name "rudramos-logo*" | head
             show rpm names with fedora logos; rpm -qa | grep -iE "logos|release|branding|bluefin|ublue" | sort
           '
