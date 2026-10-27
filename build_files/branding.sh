@@ -116,9 +116,17 @@ Comment=Update RudramOS and your apps
 Exec=pcos-control --page updates
 Icon=software-update-available
 Terminal=false
-Categories=System;Settings;
+Categories=Settings;
 Keywords=update;upgrade;rollback;
 EOF
+# Other visible entries (e.g. ChairLift): "Bluefin" in descriptions and search words → RudramOS
+for f in $(grep -L '^NoDisplay=true' /usr/share/applications/*.desktop); do
+    if grep -qi bluefin "${f}"; then
+        sed -i -E '/^(Comment|GenericName|Keywords)(\[[^]]*\])?=/ s/Bluefin/RudramOS/g' "${f}"
+        echo "reworded: ${f}"
+        grep -i bluefin "${f}" || true
+    fi
+done
 # Top-left logo menu: its Documentation item opens the RudramOS guide
 LOGOMENU=/usr/share/gnome-shell/extensions/logomenu@aryan_k/extension.js
 if [[ -f "${LOGOMENU}" ]]; then
