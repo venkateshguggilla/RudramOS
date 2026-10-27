@@ -16,19 +16,13 @@ SIGNING_PUBKEY="/etc/pki/containers/pcos.pub"
 cp -avf "/ctx/system_files"/. /
 chmod 0755 /usr/bin/pcos-privacy /usr/bin/pcos-killswitch /usr/bin/pcos-usb /usr/libexec/pcos/pcos-usb-describe /usr/libexec/pcos/pcos-usb-watch /usr/libexec/pcos/pcos-usb-prompt /usr/libexec/pcos/pcos-usb-firstboot /usr/bin/pcos-network /usr/libexec/pcos/pcos-network-prompt /usr/lib/NetworkManager/dispatcher.d/50-pcos-network-trust /usr/bin/pcos-app-guard /usr/bin/pcos-browser-extensions /usr/libexec/pcos/pcos-app-guard-notify /usr/bin/pcos-control /usr/libexec/pcos/pcos-terminal-run /usr/bin/pcos-admin-mode /usr/bin/pcos-disk-security /usr/bin/pcos-driver-assistant /usr/libexec/pcos/pcos-gpu-detect /usr/libexec/pcos/pcos-gpu-switch
 
-### Branding (Phase 1 basics; full branding in Phase 12)
-sed -i 's/^PRETTY_NAME=.*/PRETTY_NAME="RudramOS"/' /usr/lib/os-release
+### Branding: the RudramOS name everywhere is set by branding.sh at the end
 mkdir -p /usr/share/pcos
 date -u +%Y%m%d > /usr/share/pcos/build-date
 
 ### Look and feel (images made by tools/make-branding.py): trishul logo, wallpapers, red accent,
 # dark style, login screen logo, boot menu theme. The dconf defaults are compiled by the
 # "dconf update" further down.
-if grep -q '^LOGO=' /usr/lib/os-release; then
-    sed -i 's/^LOGO=.*/LOGO=rudramos-logo/' /usr/lib/os-release
-else
-    echo 'LOGO=rudramos-logo' >>/usr/lib/os-release
-fi
 # Login screen (GDM) reads /etc/dconf/db/gdm.d through its own dconf profile
 if [[ ! -f /usr/share/dconf/profile/gdm && ! -f /etc/dconf/profile/gdm ]]; then
     printf 'user-db:user\nsystem-db:gdm\nfile-db:/usr/share/gdm/greeter-dconf-defaults\n' >/etc/dconf/profile/gdm
@@ -307,6 +301,22 @@ chmod 0755 /usr/bin/pcos-setup
 python3 -B -c 'import sys; sys.path.insert(0, "/usr/lib/pcos-control"); import pcos_control.setup'
 if command -v desktop-file-validate >/dev/null; then
     desktop-file-validate /usr/share/applications/org.pcos.Setup.desktop /etc/xdg/autostart/pcos-setup.desktop
+fi
+
+### RudramOS name and look everywhere (os-release, terminal, menus, logos, wallpapers)
+chmod 0755 /usr/libexec/pcos/pcos-user-branding
+bash /ctx/branding.sh
+if command -v desktop-file-validate >/dev/null; then
+    desktop-file-validate /usr/share/applications/documentation.desktop /usr/share/applications/system-update.desktop \
+        /etc/xdg/autostart/pcos-user-branding.desktop
+fi
+# Nothing people see should still say Bluefin ("! grep" doesn't stop a set -e script, so: if)
+test "$(grep -cE '^(NAME|PRETTY_NAME)="RudramOS"$' /usr/lib/os-release)" = 2
+if grep -iE '^(NAME|PRETTY_NAME|VERSION|HOME_URL|DOCUMENTATION_URL|SUPPORT_URL|BUG_REPORT_URL|DEFAULT_HOSTNAME)=.*bluefin' /usr/lib/os-release; then
+    echo "ERROR: os-release still names Bluefin" >&2; exit 1
+fi
+if grep -liE 'bluefin' $(grep -L '^NoDisplay=true' /usr/share/applications/*.desktop); then
+    echo "ERROR: app grid entries above still name Bluefin" >&2; exit 1
 fi
 
 ### Updates

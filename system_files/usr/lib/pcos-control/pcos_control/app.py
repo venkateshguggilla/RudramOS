@@ -828,13 +828,23 @@ class Window(Adw.ApplicationWindow):
 
 
 class App(Adw.Application):
-    def __init__(self):
+    def __init__(self, page: str = ""):
         super().__init__(application_id=APP_ID, flags=Gio.ApplicationFlags.DEFAULT_FLAGS)
+        self.page = page
 
     def do_activate(self):
         win = self.props.active_window or Window(application=self)
+        if self.page in win.pages:
+            win.stack.set_visible_child_name(self.page)
         win.present()
 
 
 def main() -> int:
-    return App().run(sys.argv)
+    """pcos-control [--page updates|security|apps|phone|network|usb|privacy|disk|graphics|system]"""
+    argv = list(sys.argv)
+    page = ""
+    if "--page" in argv:
+        i = argv.index("--page")
+        page = argv[i + 1] if i + 1 < len(argv) else ""
+        del argv[i:i + 2]
+    return App(page).run(argv)

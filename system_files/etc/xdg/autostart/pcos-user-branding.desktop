@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=RudramOS look
+Comment=Puts back the RudramOS wallpaper if Bluefin's monthly wallpaper replaced it
+Exec=/usr/libexec/pcos/pcos-user-branding
+NoDisplay=true
+X-GNOME-Autostart-enabled=true

@@ -1,0 +1,15 @@
+#!/bin/bash
+# RudramOS, at each login: undo Bluefin's monthly wallpaper on accounts where it already ran
+# (it set the user's own wallpaper, which overrides RudramOS's default). A wallpaper the user
+# picked themselves is left alone. The monthly switch itself is off in the image.
+set -uo pipefail
+
+for key in picture-uri picture-uri-dark; do
+    for schema in org.gnome.desktop.background org.gnome.desktop.screensaver; do
+        value=$(gsettings get "${schema}" "${key}" 2>/dev/null) || continue
+        if [[ "${value}" == *"/backgrounds/bluefin/"* ]]; then
+            gsettings reset "${schema}" "${key}"
+            echo "Reset ${schema} ${key} (was Bluefin's dynamic wallpaper)"
+        fi
+    done
+done
