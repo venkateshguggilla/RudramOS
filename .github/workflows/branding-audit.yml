@@ -62,5 +62,9 @@ jobs:
             echo "----- dconf logomenu"; grep -rn -A12 "logo-menu\|logomenu" /etc/dconf/db/distro.d/ | head -40
             echo "----- grep Bluefin in user-facing scripts"; grep -rlI "Bluefin" /usr/bin /usr/libexec 2>/dev/null | head -30
             echo "----- ujust banner"; head -30 /usr/share/ublue-os/just/00-entry.just
+            echo "----- update notifier"; grep -n -i "bluefin" /usr/libexec/bootc-update-stage | head
+            echo "----- uwelcome"; file /usr/bin/uwelcome 2>/dev/null; grep -n -i "bluefin\|welcome" /usr/bin/uwelcome 2>/dev/null | head -20
+            echo "----- ublue-fastfetch"; cat /usr/bin/ublue-fastfetch 2>/dev/null | head -40
+            echo "----- ublue-image-info"; cat /usr/bin/ublue-image-info.sh 2>/dev/null | head -30
             show rpm names with fedora logos; rpm -qa | grep -iE "logos|release|branding|bluefin|ublue" | sort
           '
