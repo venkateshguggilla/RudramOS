@@ -121,7 +121,7 @@ Keywords=update;upgrade;rollback;
 EOF
 # Other visible entries (e.g. ChairLift): "Bluefin" in descriptions and search words → RudramOS
 for f in $(grep -L '^NoDisplay=true' /usr/share/applications/*.desktop); do
-    if grep -qi bluefin "${f}"; then
+    if grep -qiE '^[^#].*bluefin' "${f}"; then
         sed -i -E '/^(Comment|GenericName|Keywords)(\[[^]]*\])?=/ s/Bluefin/RudramOS/g' "${f}"
         echo "reworded: ${f}"
         grep -i bluefin "${f}" || true

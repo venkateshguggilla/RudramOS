@@ -315,7 +315,7 @@ test "$(grep -cE '^(NAME|PRETTY_NAME)="RudramOS"$' /usr/lib/os-release)" = 2
 if grep -iE '^(NAME|PRETTY_NAME|VERSION|HOME_URL|DOCUMENTATION_URL|SUPPORT_URL|BUG_REPORT_URL|DEFAULT_HOSTNAME)=.*bluefin' /usr/lib/os-release; then
     echo "ERROR: os-release still names Bluefin" >&2; exit 1
 fi
-if grep -liE 'bluefin' $(grep -L '^NoDisplay=true' /usr/share/applications/*.desktop); then
+if grep -liE '^[^#].*bluefin' $(grep -L '^NoDisplay=true' /usr/share/applications/*.desktop); then
     echo "ERROR: app grid entries above still name Bluefin" >&2; exit 1
 fi
 
