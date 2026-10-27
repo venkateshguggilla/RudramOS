@@ -238,6 +238,13 @@ def parse_usb_rules(output: str) -> list[Item]:
         dev = re.search(r'\bid ([0-9a-f*]{4}:[0-9a-f*]{4})', rest)
         if dev:
             title = (name.group(1) if name and name.group(1) else "") or f"USB device {dev.group(1)}"
+            ifaces = re.search(r"with-interface (\{[^}]*\}|\S+)", rest)
+            # interface "class:subclass:protocol" triples, e.g. 09:00:00 (hub), 03:01:01 (keyboard)
+            classes = re.findall(r"\b([0-9a-f*]{2}):[0-9a-f*]{2}:[0-9a-f*]{2}\b", ifaces.group(1)) if ifaces else []
+            if classes and all(c == "09" for c in classes):
+                # A hub or the PC's own USB controller: every port depends on it, so no Remove
+                items.append(Item(title, f"USB hub or controller · {dev.group(1)} · always allowed"))
+                continue
             items.append(Item(title, f"{'Always allowed' if target == 'allow' else 'Always blocked'} · {dev.group(1)}",
                               ["/usr/bin/pcos-usb", "forget", num]))
         elif "with-interface" in rest and target == "allow":

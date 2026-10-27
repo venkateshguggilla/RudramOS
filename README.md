@@ -108,7 +108,7 @@ Open **RudramOS Control Center** from the app grid (or run `pcos-control`). Ever
 | Graphics | Install the right graphics driver |
 | System | Boot menu theme on or off, **Restart into BIOS / UEFI settings**, run the first-time setup again |
 
-Only steps where you type a secret (the disk passphrase) or touch a security key still open a small terminal window.
+Nothing opens a terminal. Steps that need a secret, like your disk passphrase, a PIN or a touch of your security key, happen in a small window: you type it there (it goes straight to the tool, never onto a command line), the window says when to touch the key, and a new disk recovery key is shown once with a **Copy** button. The pages are in a sidebar, like GNOME Settings. `pcos-control --page disk` opens a page directly.
 
 ## Admin approval: Standard or Strong
 Every admin action (installing apps, system settings, `sudo`) asks for approval.

@@ -74,6 +74,8 @@ class ListTests(unittest.TestCase):
                '3: allow id 1050:0407 serial "" name "" hash "ghi="\n'
                '4: allow with-interface match-all { 03:01:01 03:00:01 } if !allowed-matches(with-interface one-of { 03:01:01 })\n')
         items = dialogs.parse_usb_rules(out)
+        self.assertEqual(items[0].title, "xHCI Host Controller")
+        self.assertIsNone(items[0].remove)  # the PC's USB controller: every port depends on it
         self.assertEqual(items[1].title, "USB Keyboard")
         self.assertEqual(items[1].remove, ["/usr/bin/pcos-usb", "forget", "2"])
         self.assertEqual(items[2].title, "USB device 1050:0407")
