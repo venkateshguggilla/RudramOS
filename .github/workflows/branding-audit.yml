@@ -53,5 +53,14 @@ jobs:
             show sysctl hostname / systemd defaults; grep -rh "Hostname\|hostname" /usr/lib/systemd/system.conf.d 2>/dev/null | head
             show yafti or welcome apps; ls /usr/share/ublue-os/firstboot 2>/dev/null; ls /etc/skel /etc/skel/.config 2>/dev/null
             show gnome about page logo; ls /usr/share/icons/hicolor/scalable/apps | grep -iE "fedora|bluefin|logo|ublue" | head
+            show DETAILS
+            for f in /etc/dconf/db/distro.d/04-bluefin-custom-command-menu /usr/share/applications/system-update.desktop /usr/share/applications/documentation.desktop /usr/share/applications/discourse.desktop /etc/profile.d/ublue-fastfetch.sh /etc/profile.d/uwelcome.sh /usr/share/ublue-os/fastfetch.jsonc /usr/share/ublue-os/image-info.json /etc/profile.d/90-bluefin-starship.sh; do echo "----- $f"; cat "$f" 2>/dev/null | head -80; done
+            echo "----- motd"; ls -R /usr/share/ublue-os/motd | head; head -40 /usr/share/ublue-os/motd/tips/* 2>/dev/null | head -60
+            echo "----- bluefin-logos"; ls -R /usr/share/ublue-os/bluefin-logos | head -40
+            echo "----- logomenu docs context"; grep -n -B3 -A3 "projectbluefin" /usr/share/gnome-shell/extensions/logomenu@aryan_k/*.js | head -30
+            echo "----- logomenu schema keys"; grep -o "key name=\"[a-z-]*\"" /usr/share/gnome-shell/extensions/logomenu@aryan_k/schemas/*.xml | head -40
+            echo "----- dconf logomenu"; grep -rn -A12 "logo-menu\|logomenu" /etc/dconf/db/distro.d/ | head -40
+            echo "----- grep Bluefin in user-facing scripts"; grep -rlI "Bluefin" /usr/bin /usr/libexec 2>/dev/null | head -30
+            echo "----- ujust banner"; head -30 /usr/share/ublue-os/just/00-entry.just
             show rpm names with fedora logos; rpm -qa | grep -iE "logos|release|branding|bluefin|ublue" | sort
           '
