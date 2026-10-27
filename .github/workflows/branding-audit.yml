@@ -70,5 +70,8 @@ jobs:
             echo "----- fastfetch settings"; cat /etc/ublue-os/fastfetch.json 2>/dev/null; ls /usr/share/ublue-os/fastfetch 2>/dev/null | head
             echo "----- fastfetch tail"; tail -40 /usr/share/ublue-os/fastfetch.jsonc
             echo "----- symbolic logo"; find /usr/share/icons -name "rudramos-logo*" | head
+            echo "----- gnome-shell theme"; ls -la /usr/share/gnome-shell/*.gresource; command -v gresource glib-compile-resources; gresource list /usr/share/gnome-shell/gnome-shell-theme.gresource 2>/dev/null | head -60
+            echo "----- lockDialogGroup"; for r in $(gresource list /usr/share/gnome-shell/gnome-shell-theme.gresource 2>/dev/null | grep "\.css$"); do echo "$r: $(gresource extract /usr/share/gnome-shell/gnome-shell-theme.gresource $r | grep -c lockDialogGroup)"; gresource extract /usr/share/gnome-shell/gnome-shell-theme.gresource $r | grep -n -A4 "#lockDialogGroup" | head -12; done
+            echo "----- gdm mode"; ls /usr/share/gnome-shell/modes 2>/dev/null; cat /usr/share/gnome-shell/modes/gdm.json 2>/dev/null | head; rpm -q gnome-shell gdm glib2-devel 2>/dev/null
             show rpm names with fedora logos; rpm -qa | grep -iE "logos|release|branding|bluefin|ublue" | sort
           '
