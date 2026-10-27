@@ -1,8 +1,10 @@
 #!/bin/bash
 # RudramOS disk security: manage how the encrypted system drive (LUKS2) unlocks at boot.
-# See docs/DESIGN.md §4.2. Run from a terminal: sudo pcos-disk-security <command>
+# See docs/DESIGN.md §4.2. Control Center → Disk runs it through pkexec; or from a terminal:
+# sudo pcos-disk-security <command> [--secrets-stdin] [--yes]
 #
 #   status             show encryption, TPM, Secure Boot and enrolled unlock methods
+#   methods            just the enrolled unlock methods, e.g. "password recovery tpm2"
 #   tpm                unlock automatically with this PC's TPM (sealed to Secure Boot state, PCR 7)
 #   tpm-pin            TPM + a PIN typed at boot (recommended for laptops)
 #   fido2              unlock with a FIDO2 security key (touch + key PIN)
@@ -11,6 +13,11 @@
 #   remove-tpm         stop TPM unlock
 #   remove-fido2       stop FIDO2 unlock
 #   remove-passphrase  remove the install-time passphrase (only once a recovery key and TPM/FIDO2 exist)
+#
+#   --secrets-stdin    read PASSWORD= (existing passphrase or recovery key), NEWPIN= (TPM PIN) and
+#                      PIN= (security key PIN) lines from stdin instead of asking in the terminal.
+#                      Secrets never go on the command line, where other programs could see them.
+#   --yes              don't ask "Continue?" (the app asked already)
 
 set -euo pipefail
 
@@ -86,7 +93,36 @@ enroll_tpm() {
     has_slot "${dev}" recovery || echo "Reminder: create a recovery key too: sudo $(basename "$0") recovery-key"
 }
 
+# Secrets for systemd-cryptenroll, which reads $PASSWORD, $NEWPIN and $PIN instead of prompting
+read_secrets() {
+    local line key
+    while IFS= read -r line || [[ -n "${line}" ]]; do
+        key="${line%%=*}"
+        case "${key}" in
+        PASSWORD | NEWPIN | PIN) export "${key}=${line#*=}" ;;
+        "") ;;
+        *) echo "Ignored unknown secret name: ${key}" >&2 ;;
+        esac
+    done
+}
+
+confirm() {
+    [[ "${YES}" == yes ]] && return 0
+    local answer
+    read -r -p "$1 [y/N] " answer
+    [[ "${answer}" =~ ^[Yy]$ ]]
+}
+
 cmd="${1:-status}"
+shift || true
+YES=no
+for opt in "$@"; do
+    case "${opt}" in
+    --secrets-stdin) read_secrets ;;
+    --yes) YES=yes ;;
+    *) echo "Unknown option: ${opt}" >&2; exit 2 ;;
+    esac
+done
 case "${cmd}" in
 status)
     require_root "$@"
@@ -98,6 +134,7 @@ status)
     echo
     systemd-cryptenroll "${dev}"
     ;;
+methods) require_root "$@"; slot_types "$(luks_device)"; echo ;;
 tpm) require_root "$@"; enroll_tpm "$(luks_device)" no ;;
 tpm-pin) require_root "$@"; enroll_tpm "$(luks_device)" yes ;;
 reseal)
@@ -118,8 +155,7 @@ recovery-key)
     dev=$(luks_device)
     echo "A new recovery key will be shown ONCE. Write it down or print it and store it away from this PC."
     echo "Any previous recovery key stops working."
-    read -r -p "Continue? [y/N] " answer
-    [[ "${answer}" =~ ^[Yy]$ ]] || exit 0
+    confirm "Continue?" || exit 0
     systemd-cryptenroll --wipe-slot=recovery --recovery-key "${dev}"
     ;;
 remove-tpm) require_root "$@"; systemd-cryptenroll --wipe-slot=tpm2 "$(luks_device)"; rm -f "${STATE_FILE}" ;;
@@ -136,11 +172,10 @@ remove-passphrase)
         exit 1
     fi
     echo "After this, the drive unlocks only with: $(slot_types "${dev}" | sed 's/password //')"
-    read -r -p "Remove the install-time passphrase? [y/N] " answer
-    [[ "${answer}" =~ ^[Yy]$ ]] || exit 0
+    confirm "Remove the install-time passphrase?" || exit 0
     systemd-cryptenroll --wipe-slot=password "${dev}"
     ;;
--h | --help | help) sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//' ;;
+-h | --help | help) sed -n '2,21p' "$0" | sed 's/^# \{0,1\}//' ;;
 *)
     echo "Unknown command: ${cmd}. See: $(basename "$0") --help" >&2
     exit 2

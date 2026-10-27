@@ -32,6 +32,31 @@ check "rd.luks.uuid with luks- prefix" "${U}" "root=UUID=x rd.luks.uuid=luks-${U
 check "rd.luks.name" "${U}" "root=/dev/mapper/root rd.luks.name=${U}=root quiet"
 check "not encrypted" "" "BOOT_IMAGE=/vmlinuz root=UUID=x rw quiet"
 
+# --secrets-stdin: only PASSWORD / NEWPIN / PIN become environment variables for systemd-cryptenroll
+expect() {
+    if [[ "$2" == "$3" ]]; then echo "ok   $1"; else echo "FAIL $1: expected '$3', got '$2'"; failures=$((failures + 1)); fi
+}
+unset PASSWORD NEWPIN PIN EVIL
+read_secrets 2>"${work}/err" <<'EOF'
+PASSWORD=my disk pass = with spaces
+NEWPIN=4821
+EVIL=$(touch /tmp/pwned)
+PIN=123456
+EOF
+expect "passphrase with spaces and '='" "${PASSWORD:-}" "my disk pass = with spaces"
+expect "TPM PIN" "${NEWPIN:-}" "4821"
+expect "security key PIN" "${PIN:-}" "123456"
+expect "unknown names are ignored" "${EVIL:-unset}" "unset"
+expect "and reported by name" "$(grep -c 'Ignored unknown secret name: EVIL' "${work}/err")" "1"
+expect "without printing the value" "$(grep -c 'pwned' "${work}/err")" "0"
+unset PIN
+read_secrets < <(printf 'PIN=9999')
+expect "a last line without newline is read" "${PIN:-}" "9999"
+YES=yes
+if confirm "Continue?" </dev/null; then expect "--yes answers the question" ok ok; else expect "--yes answers the question" no ok; fi
+YES=no
+if echo n | confirm "Continue?" >/dev/null 2>&1; then expect "'n' means no" yes no; else expect "'n' means no" no no; fi
+
 echo
 if (( failures > 0 )); then
     echo "${failures} test(s) failed"

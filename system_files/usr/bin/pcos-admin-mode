@@ -1,5 +1,6 @@
 #!/bin/bash
-# RudramOS admin approval mode (docs/DESIGN.md §4.3). Run from a terminal with sudo.
+# RudramOS admin approval mode (docs/DESIGN.md §4.3). Control Center → Security runs it through
+# pkexec; or from a terminal with sudo. "test" and "strong" read the password from stdin (PAM).
 #
 #   status               show the current mode and registered security keys
 #   add-key [user]       register a FIDO2 security key (run once per key; register a backup key too)
@@ -34,10 +35,19 @@ current_mode() {
     cat "${MODE_FILE}" 2>/dev/null || echo standard
 }
 
-# User the command is about: explicit argument, else whoever ran sudo
+# Who asked: the user behind sudo, or behind pkexec (Control Center)
+caller() {
+    if [[ -n "${SUDO_USER:-}" ]]; then
+        echo "${SUDO_USER}"
+    elif [[ -n "${PKEXEC_UID:-}" ]]; then
+        id -nu "${PKEXEC_UID}" 2>/dev/null || true
+    fi
+}
+
+# User the command is about: explicit argument, else whoever asked
 target_user() {
-    local user="${1:-${SUDO_USER:-}}"
-    [[ -n "${user}" ]] || die "No user given and not run through sudo."
+    local user="${1:-$(caller)}"
+    [[ -n "${user}" ]] || die "No user given and not run through sudo or Control Center."
     id "${user}" >/dev/null 2>&1 || die "No such user: ${user}"
     echo "${user}"
 }
@@ -104,7 +114,7 @@ add-key)
 remove-keys)
     require_root "${cmd}"
     user=$(target_user "${1:-}")
-    if [[ "$(current_mode)" == strong && "${user}" == "${SUDO_USER:-}" ]]; then
+    if [[ "$(current_mode)" == strong && "${user}" == "$(caller)" ]]; then
         die "Refusing: you're in Strong mode and would lose admin access. Switch to standard first."
     fi
     tmp=$(mktemp)
@@ -136,6 +146,6 @@ standard)
     install_template standard
     echo "Standard mode is on: admin actions need only your password."
     ;;
--h | --help | help) sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//' ;;
+-h | --help | help) sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//' ;;
 *) die "Unknown command: ${cmd}. See: $(basename "$0") --help" ;;
 esac

@@ -1,0 +1,8 @@
+{
+  "uuid": "rudramos-login-background@rudramos",
+  "name": "RudramOS login background",
+  "description": "The RudramOS trishul art behind the login screen (GNOME draws a plain colour there).",
+  "shell-version": ["48", "49", "50"],
+  "session-modes": ["gdm"],
+  "url": "https://github.com/venkateshguggilla/RudramOS"
+}

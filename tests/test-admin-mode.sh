@@ -25,6 +25,7 @@ exit 0
 EOF
 cat >"${work}/bin/id" <<'EOF'
 #!/bin/bash
+if [[ "$1" == -nu ]]; then [[ "$2" == 1000 ]] && echo venky; exit; fi
 [[ "$1" == "venky" || "$1" == "guest" ]]
 EOF
 chmod +x "${work}/bin/"*
@@ -76,6 +77,12 @@ assert "mode file says strong" grep -qx strong "${MODE_FILE}"
 expect "removing own keys refused in strong mode" 1 bash "${TOOL}" remove-keys
 expect "removing another user's keys allowed" 0 bash "${TOOL}" remove-keys guest
 assert "guest keys gone, venky kept" bash -c "! grep -q '^guest:' '${U2F_MAPPINGS}' && grep -q '^venky:' '${U2F_MAPPINGS}'"
+
+# Control Center runs it through pkexec: no SUDO_USER, the caller is PKEXEC_UID
+expect "pkexec: removing own keys refused in strong mode" 1 env -u SUDO_USER PKEXEC_UID=1000 bash "${TOOL}" remove-keys
+expect "pkexec: add-key for the caller" 0 env -u SUDO_USER PKEXEC_UID=1000 bash "${TOOL}" add-key
+assert "pkexec: key added to the caller's line" grep -q '^venky:.*:KH' "${U2F_MAPPINGS}"
+expect "no caller at all refused" 1 env -u SUDO_USER -u PKEXEC_UID bash "${TOOL}" add-key
 
 expect "back to standard" 0 bash "${TOOL}" standard
 assert "pcos-admin is standard template" cmp -s "${PAM_DIR}/pcos-admin" "${TEMPLATE_DIR}/pcos-admin.standard"

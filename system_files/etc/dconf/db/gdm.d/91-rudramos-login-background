@@ -1,0 +1,4 @@
+# RudramOS: the trishul art behind the login screen (extension rudramos-login-background@rudramos,
+# which only runs on the login screen). Remove this file and run "dconf update" for the plain one.
+[org/gnome/shell]
+enabled-extensions=['rudramos-login-background@rudramos']

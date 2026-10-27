@@ -1,0 +1,50 @@
+---
+# Screenshots of Control Center, its dialogs and the first-boot setup, drawn by the real GTK and
+# libadwaita of a published RudramOS image on a virtual screen. Uses this branch's Control Center
+# code (so a change can be looked at before it's in an image) and a fake pkexec: nothing runs as
+# root and no real tool is called. Run by hand from the Actions tab; the PNGs are an artifact.
+name: UI screenshots
+
+on:
+  workflow_dispatch:
+    inputs:
+      variant:
+        description: "Image variant to draw with"
+        default: rudramos
+        type: choice
+        options: [rudramos, rudramos-nvidia, rudramos-nvidia-legacy]
+
+permissions:
+  contents: read
+
+jobs:
+  screenshots:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Draw the UI
+        env:
+          IMAGE: ghcr.io/${{ github.repository_owner }}/${{ inputs.variant }}:latest
+        run: |
+          IMAGE="${IMAGE,,}"
+          mkdir -p shots
+          podman pull -q "${IMAGE}"
+          podman run --rm -v "${PWD}:/src:Z" -w /src --entrypoint /bin/bash "${IMAGE}" -c '
+            set -e
+            dnf5 install -y -q xorg-x11-server-Xvfb ImageMagick >/dev/null
+            mkdir -p /tmp/fakebin && install -m 0755 tools/fake-pkexec /tmp/fakebin/pkexec
+            export PATH=/tmp/fakebin:$PATH GSK_RENDERER=cairo GDK_BACKEND=x11 NO_AT_BRIDGE=1 OUT=/src/shots
+            export XDG_RUNTIME_DIR=/tmp/xdg && mkdir -p -m 0700 $XDG_RUNTIME_DIR
+            Xvfb :99 -screen 0 1280x900x24 >/dev/null 2>&1 &
+            export DISPLAY=:99
+            sleep 2
+            dbus-run-session -- timeout 300 python3 tools/ui-demo.py system_files/usr/lib/pcos-control
+          '
+          ls -la shots
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ui-screenshots
+          path: shots
+          retention-days: 7

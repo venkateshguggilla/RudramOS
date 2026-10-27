@@ -2,7 +2,7 @@
 
 Opens once at an admin's first login (autostart: pcos-setup --first-login) and any time from the
 app grid. One step per page, with Back / Next. The steps reuse Control Center's pages, so the
-buttons, admin approval and terminal steps are the same in both. Closing early is fine: it opens
+buttons, admin approval and dialogs are the same in both. Closing early is fine: it opens
 again at the next login until Finish (or Skip setup) is pressed.
 """
 
@@ -86,7 +86,7 @@ class SetupWindow(Window):
         toolbar.add_top_bar(header)
         toolbar.add_bottom_bar(bar)
         self.set_content(toolbar)
-        # Refresh when the window comes back into focus, e.g. after a terminal step finishes
+        # Refresh when the window comes back into focus, e.g. after a dialog or another app changed something
         self.connect("notify::is-active", lambda *_: self.refresh() if self.is_active() else None)
         self.go(0)
 

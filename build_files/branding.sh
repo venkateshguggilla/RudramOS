@@ -134,6 +134,20 @@ if [[ -f "${LOGOMENU}" ]]; then
     if grep -q "projectbluefin" "${LOGOMENU}"; then echo "ERROR: logo menu still links to Bluefin" >&2; exit 1; fi
 fi
 
+### Login screen background: the trishul art, dimmed and softened so names and the password box
+# stay readable. Shown by the rudramos-login-background@rudramos extension (login screen only).
+python3 - <<'EOF'
+from PIL import Image, ImageEnhance, ImageFilter
+art = Image.open("/usr/share/backgrounds/rudramos/rudramos-trishul.jpg").convert("RGB")
+art = art.filter(ImageFilter.GaussianBlur(radius=max(2, art.width // 640)))
+art = ImageEnhance.Brightness(art).enhance(0.45)
+art.save("/usr/share/pcos/login-background.jpg", quality=88, optimize=True)
+print("login background:", art.size)
+EOF
+LOGIN_EXT=/usr/share/gnome-shell/extensions/rudramos-login-background@rudramos
+python3 -c "import json; m = json.load(open('${LOGIN_EXT}/metadata.json')); assert m['session-modes'] == ['gdm'], m"
+grep -q "rudramos-login-background@rudramos" /etc/dconf/db/gdm.d/91-rudramos-login-background
+
 ### Fallback logos (old installer screens, boot themes, apps that look for the distro logo)
 python3 - <<'EOF'
 import glob, os

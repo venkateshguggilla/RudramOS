@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC
+ "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+<policyconfig>
+  <vendor>RudramOS</vendor>
+
+  <!-- Disk page: how the encrypted drive unlocks (TPM, PIN, security key, recovery key).
+       Asked every time (auth_admin, not _keep): these change who can read the drive. -->
+  <action id="org.pcos.disk-security">
+    <description>Change how the encrypted drive unlocks</description>
+    <message>RudramOS Control Center wants to change how the encrypted drive unlocks ($(cmdline_short))</message>
+    <icon_name>drive-harddisk</icon_name>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/bin/pcos-disk-security</annotate>
+  </action>
+
+  <!-- Security page: admin approval mode and security keys. Asked every time. -->
+  <action id="org.pcos.admin-mode">
+    <description>Change admin approval and security keys</description>
+    <message>RudramOS Control Center wants to change how admin actions are approved ($(cmdline_short))</message>
+    <icon_name>security-high</icon_name>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/bin/pcos-admin-mode</annotate>
+  </action>
+</policyconfig>

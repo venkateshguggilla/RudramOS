@@ -1,0 +1,30 @@
+#!/bin/bash
+# Stand-in for pkexec in tools/ui-demo.py: prints what the real RudramOS tools would, with
+# pauses, and never runs them. The recovery key below is a made-up example.
+cat >/dev/null  # secrets on stdin: read and discarded
+tool=$(basename "$1")
+shift
+case "${tool} $*" in
+"pcos-admin-mode add-key")
+    sleep 1; echo "Insert the security key, then touch it when it blinks (enter its PIN if asked)."
+    sleep 1; echo "Please touch the device."
+    sleep 2; echo "Registered. venky now has 1 security key(s)."; echo "Tip: register a backup key too." ;;
+"pcos-disk-security recovery-key --secrets-stdin --yes")
+    echo "A new recovery key will be shown ONCE. Write it down or print it and store it away from this PC."
+    sleep 1; echo "A secret recovery key has been generated for this volume:"; echo
+    echo "    fvgldvhk-kbjjdcuv-rudtcltk-hfiunrhu-tjlcjhrb-hrijrvbt-inrbcklh-ijbreeiv"; echo
+    echo "New recovery key enrolled as key slot 3." ;;
+"pcos-disk-security tpm --secrets-stdin --yes")
+    sleep 1; echo "Enter an existing unlock passphrase or recovery key when asked."
+    echo "Failed to unlock disk: Operation not permitted" >&2; exit 1 ;;
+"pcos-app-guard list")
+    printf '%s\n' /home/venky/Downloads/Obsidian-1.9.12.AppImage /home/venky/Downloads/tool-installer \
+        /run/media/venky/USB/portable-app ;;
+"pcos-usb rules")
+    echo '1: allow id 1d6b:0002 serial "0000:00:14.0" name "xHCI Host Controller" hash "jEP=" with-interface 09:00:00'
+    echo '2: allow id 046d:c31c serial "" name "USB Keyboard" hash "6/m=" with-interface { 03:01:01 03:00:00 }'
+    echo '3: allow id 046d:c077 serial "" name "USB Optical Mouse" hash "kN6=" with-interface 03:01:02'
+    echo '4: allow id 1050:0407 serial "" name "YubiKey OTP+FIDO+CCID" hash "abc=" with-interface { 03:01:01 03:00:00 0b:00:00 }'
+    echo '5: allow with-interface match-all { 03:01:01 03:00:01 03:01:02 03:00:02 03:00:00 } if !allowed-matches(with-interface one-of { 03:01:01 03:00:01 })' ;;
+*) echo "fake pkexec: ${tool} $*" ;;
+esac

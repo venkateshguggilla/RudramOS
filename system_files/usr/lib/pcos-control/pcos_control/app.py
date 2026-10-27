@@ -1,8 +1,8 @@
 """RudramOS Control Center: one place for the RudramOS security and system settings.
 
 Status is read without root (status.py). Changes are buttons that run the RudramOS tools
-through pkexec (admin approval with the system's own prompt). Only steps where you type a
-secret or touch a security key open a terminal (pcos-terminal-run).
+through pkexec (admin approval with the system's own prompt). Steps where you type a passphrase
+or PIN, or touch a security key, happen in dialogs (dialogs.py) that send secrets on stdin.
 """
 
 from __future__ import annotations
@@ -18,18 +18,19 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 from gi.repository import Adw, Gio, GLib, Gtk  # noqa: E402
 
-from . import status  # noqa: E402
+from . import dialogs, status  # noqa: E402
 
 APP_ID = "org.pcos.Control"
 CONTROL_CENTER = "/usr/bin/pcos-control"
 SETUP = "/usr/bin/pcos-setup"
-TERMINAL_RUN = "/usr/libexec/pcos/pcos-terminal-run"
 APP_GUARD = "/usr/bin/pcos-app-guard"
 BROWSER_EXTENSIONS = "/usr/bin/pcos-browser-extensions"
 NETWORK = "/usr/bin/pcos-network"
 USB = "/usr/bin/pcos-usb"
 PRIVACY = "/usr/bin/pcos-privacy"
 KILLSWITCH = "/usr/bin/pcos-killswitch"
+ADMIN_MODE = "/usr/bin/pcos-admin-mode"
+DISK = "/usr/bin/pcos-disk-security"
 
 DNS_CHOICES = [
     ("quad9", "Quad9 (blocks malware sites)"),
@@ -78,10 +79,6 @@ ONLINE_CHECK_EVERY = 600  # seconds between update checks while the window is op
 
 def when(ts: int) -> str:
     return time.strftime("%-d %b %Y, %H:%M", time.localtime(ts)) if ts else "unknown"
-
-
-def run_in_terminal(title: str, *cmd: str) -> None:
-    Gio.Subprocess.new([TERMINAL_RUN, title, *cmd], Gio.SubprocessFlags.NONE)
 
 
 def info_row(title: str, subtitle: str = "") -> Adw.ActionRow:
@@ -142,7 +139,7 @@ class Window(Adw.ApplicationWindow):
         toolbar.add_top_bar(header)
         self.set_content(toolbar)
 
-        # Refresh when the window comes back into focus, e.g. after a terminal step finishes
+        # Refresh when the window comes back into focus, e.g. after a dialog or another app changed something
         self.connect("notify::is-active", lambda *_: self.refresh() if self.is_active() else None)
         self._loading = False
         self._updating = False  # an update is downloading
@@ -301,20 +298,27 @@ class Window(Adw.ApplicationWindow):
             key_rows = [info_row("Security keys", "None registered")]
         actions = [
             button_row("Register a security key", "Plug in a FIDO2 key (e.g. YubiKey). Register a backup key too.",
-                       "Register", lambda: run_in_terminal("Register security key", "sudo", "pcos-admin-mode", "add-key")),
+                       "Register", lambda: dialogs.run(
+                           self, "Register a security key", [ADMIN_MODE, "add-key"],
+                           hint="Plug in the key. After the password window, touch it when it blinks.",
+                           on_done=lambda ok, _o: self.refresh())),
         ]
         if strong:
             actions.append(button_row("Switch to Standard", "Admin actions will need only your password. Needs your key now.",
-                                      "Switch", lambda: run_in_terminal("Switch to Standard mode", "sudo", "pcos-admin-mode", "standard")))
+                                      "Switch", lambda: dialogs.run(self, "Switch to Standard mode", [ADMIN_MODE, "standard"],
+                                                                    on_done=lambda ok, _o: self.refresh())))
         else:
             actions.append(button_row(
                 "Turn on Strong mode",
                 "Requires a registered key; runs a password + touch test first." if my_keys else "Register a security key first.",
-                "Turn on", lambda: run_in_terminal("Turn on Strong mode", "sudo", "pcos-admin-mode", "strong"),
+                "Turn on", lambda: self._key_test("Turn on Strong mode", "strong",
+                                                  "First a test: your password, then a touch of your key. Strong mode "
+                                                  "turns on only if the test passes, so you can't lock yourself out."),
                 suggested=True, sensitive=my_keys > 0))
         if my_keys:
             actions.append(button_row("Test password + key", "Checks that your key works, changes nothing.", "Test",
-                                      lambda: run_in_terminal("Test security key", "sudo", "pcos-admin-mode", "test")))
+                                      lambda: self._key_test("Test password + key", "test",
+                                                             "Type your password, then touch your key when it blinks.")))
         return [
             group("Admin protection", "How installs and system changes are approved.", [mode_row, *key_rows]),
             group("", "", actions),
@@ -328,7 +332,10 @@ class Window(Adw.ApplicationWindow):
             info_row("Programs from Downloads, Desktop and USB drives", f"App approval: {state}. They run only after an admin approves them."),
             button_row("Approve a program", "Pick a downloaded program or AppImage you trust.", "Choose…", self._choose_program),
             button_row("Approved programs", "See or remove approvals.", "Show",
-                       lambda: run_in_terminal("Approved programs", "sudo", "pcos-app-guard", "list")),
+                       lambda: dialogs.show_list(self, "Approved programs",
+                                                 "These run from Downloads, the Desktop or USB drives. Remove one to block it again.",
+                                                 [APP_GUARD, "list"], dialogs.parse_approved_programs,
+                                                 "No programs approved yet.")),
         ]
         if s.approval_on is False:
             approval.append(button_row("Turn app approval on", "Recommended.", "Turn on",
@@ -492,9 +499,12 @@ class Window(Adw.ApplicationWindow):
                 mode_rows.append(button_row(title, subtitle, "Use", lambda m=mode: self._privileged([USB, "mode", m], f"USB protection: {USB_MODES[m][0]}.")))
         mode_rows += [
             button_row("Connected devices", "Every USB device, in plain words.", "Show",
-                       lambda: run_in_terminal("Connected USB devices", "sudo", "pcos-usb", "devices")),
-            button_row("Always-allowed devices", "Remove a device with: sudo pcos-usb forget <number>.", "Show",
-                       lambda: run_in_terminal("Always-allowed USB devices", "sudo", "pcos-usb", "rules")),
+                       lambda: dialogs.show_list(self, "Connected USB devices", "", [USB, "devices"],
+                                                 dialogs.parse_usb_devices, "No USB devices.")),
+            button_row("Always-allowed devices", "See them, or remove one so it's asked about again.", "Show",
+                       lambda: dialogs.show_list(self, "Always-allowed USB devices",
+                                                 "Remove a device to be asked about it the next time it's plugged in.",
+                                                 [USB, "rules"], dialogs.parse_usb_rules, "None.", self.refresh)),
         ]
         return [
             group("Waiting for approval", "Blocked until you allow them. Nothing is asked while the screen is locked.", pending_rows),
@@ -574,22 +584,36 @@ class Window(Adw.ApplicationWindow):
         ]
         groups = [group("Encryption", "Only this PC can read the drive when the key is sealed to its TPM.", info)]
         if s.encrypted:
-            def disk(title: str, *args: str):
-                return lambda: run_in_terminal(title, "sudo", "pcos-disk-security", *args)
+            unlock = dialogs.Field("PASSWORD", "Current disk passphrase or recovery key")
+            new_pin = [dialogs.Field("NEWPIN", "New start-up PIN", pin=True),
+                       dialogs.Field("", "The same PIN again", pin=True, confirm_of="NEWPIN")]
+            key_pin = dialogs.Field("PIN", "Security key PIN", pin=True)
+            D = self._disk_step  # noqa: N806
 
-            groups.append(group("Unlock at boot", "Each step opens a terminal and asks for your passphrase.", [
+            groups.append(group("Unlock at boot", "Each step asks for the passphrase you type at start-up today.", [
                 button_row("Recovery key", "Create a new recovery key. Write it down and keep it away from this PC.",
-                           "Create", disk("Create recovery key", "recovery-key"), suggested=True),
+                           "Create", lambda: D("Create a recovery key", "recovery-key", [unlock],
+                                               "A new recovery key is shown once in the next window. Any older recovery "
+                                               "key stops working.", recovery=True), suggested=True),
                 button_row("Unlock automatically", "Use this PC's TPM. Breaks safely if Secure Boot is changed.",
-                           "Set up", disk("Unlock with TPM", "tpm"), sensitive=s.tpm_present),
+                           "Set up", lambda: D("Unlock automatically", "tpm", [unlock],
+                                               "From the next start, the drive unlocks by itself on this PC only."),
+                           sensitive=s.tpm_present),
                 button_row("TPM + PIN", "Type a short PIN at boot (recommended for laptops).",
-                           "Set up", disk("Unlock with TPM + PIN", "tpm-pin"), sensitive=s.tpm_present),
+                           "Set up", lambda: D("Unlock with TPM + PIN", "tpm-pin", [unlock, *new_pin],
+                                               "From the next start, type this PIN instead of the passphrase."),
+                           sensitive=s.tpm_present),
                 button_row("Security key", "Unlock with a FIDO2 key (touch + its PIN).",
-                           "Set up", disk("Unlock with security key", "fido2")),
+                           "Set up", lambda: D("Unlock with a security key", "fido2", [unlock, key_pin],
+                                               "Plug in the key. After the password window, touch it when it blinks. "
+                                               "Repeat with your backup key.",
+                                               hint="Touch your security key when it blinks.")),
                 button_row("Re-seal after a BIOS update", "If the drive asked for the recovery key after a firmware update.",
-                           "Re-seal", disk("Re-seal TPM", "reseal"), sensitive=s.tpm_present),
+                           "Re-seal", lambda: D("Re-seal the TPM", "reseal", [unlock],
+                                                "Type the recovery key (or passphrase) you used at start-up."),
+                           sensitive=s.tpm_present),
                 button_row("Show unlock methods", "List what can unlock the drive.",
-                           "Show", disk("Disk unlock methods", "status")),
+                           "Show", lambda: dialogs.run(self, "Disk unlock methods", [DISK, "status"])),
             ]))
         return groups
 
@@ -694,6 +718,26 @@ class Window(Adw.ApplicationWindow):
             self.refresh(check_online=check_online)
 
         proc.communicate_utf8_async(None, None, done)
+
+    def _key_test(self, title: str, cmd: str, body: str) -> None:
+        """Strong mode on / key test: the user's password goes to PAM (pamtester) on stdin."""
+        dialogs.ask(self, title, body, [dialogs.Field("PASSWORD", "Your password")], "Continue",
+                    lambda v: dialogs.run(self, title, [ADMIN_MODE, cmd], stdin_text=v["PASSWORD"] + "\n",
+                                          hint="Checking your password…", on_done=lambda ok, _o: self.refresh()))
+
+    def _disk_step(self, title: str, cmd: str, fields: list[dialogs.Field], body: str,
+                   recovery: bool = False, hint: str = "") -> None:
+        """A pcos-disk-security step: secrets typed here, sent on stdin, never on the command line."""
+        def go(values: dict[str, str]) -> None:
+            def done(ok: bool, output: str) -> None:
+                if ok and recovery:
+                    dialogs.show_recovery_key(self, output)
+                self.refresh()
+
+            dialogs.run(self, title, [DISK, cmd, "--secrets-stdin", "--yes"], stdin_text=dialogs.secrets_text(values),
+                        hint=hint or "Working… this can take a few seconds.", on_done=done)
+
+        dialogs.ask(self, title, body, fields, "Continue", go)
 
     def _user_cmd(self, argv: list[str], ok_text: str) -> None:
         """Runs a command as the user (no approval needed), toasts the result, then refreshes."""
