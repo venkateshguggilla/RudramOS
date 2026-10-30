@@ -16,6 +16,7 @@ assert() {
 }
 
 export PCOS_GRUB_THEME_SRC="${work}/src" PCOS_GRUB_DIR="${work}/grub2" PCOS_NO_GRUB_THEME="${work}/no-grub-theme"
+export PCOS_NO_WINDOWS_ENTRY="${work}/no-windows-entry"
 mkdir -p "${PCOS_GRUB_THEME_SRC}" "${PCOS_GRUB_DIR}"
 echo "theme" >"${PCOS_GRUB_THEME_SRC}/theme.txt"
 echo "font" >"${PCOS_GRUB_THEME_SRC}/unicode.pf2"
@@ -56,6 +57,27 @@ assert "off: flag set and theme removed" bash -c "[ -e '${PCOS_NO_GRUB_THEME}' ]
 bash "${TOOL}" on >/dev/null
 assert "on: flag cleared and theme back" bash -c "[ ! -e '${PCOS_NO_GRUB_THEME}' ] && grep -q '^### BEGIN RudramOS boot menu theme$' '${CFG}'"
 assert "unknown word refused" bash -c "bash '${TOOL}' maybe; [ \$? = 2 ]"
+
+# Dual boot: a Windows entry in custom.cfg that GRUB shows only when it finds Windows
+CUSTOM="${PCOS_GRUB_DIR}/custom.cfg"
+WIN_COUNT="grep -c '^### BEGIN RudramOS Windows entry$' '${CUSTOM}'"
+printf '%s\n' 'menuentry "My own entry" { true }' >"${CUSTOM}"
+bash "${TOOL}" >/dev/null
+assert "Windows entry added to custom.cfg" bash -c "[ \"\$(${WIN_COUNT})\" = 1 ]"
+assert "it chainloads Windows' boot manager, found by GRUB" bash -c "grep -q 'search --no-floppy --file --set=root /EFI/Microsoft/Boot/bootmgfw.efi' '${CUSTOM}' && grep -q 'chainloader /EFI/Microsoft/Boot/bootmgfw.efi' '${CUSTOM}'"
+assert "only on UEFI, only when found, then the menu waits 5 s" bash -c "grep -q 'grub_platform' '${CUSTOM}' && grep -q 'if search --no-floppy --file --set=pcos_windows' '${CUSTOM}' && grep -q 'set timeout=5' '${CUSTOM}'"
+assert "no shell-only && or || (GRUB script)" bash -c "! sed -n '/RudramOS Windows entry/,/RudramOS Windows entry/p' '${CUSTOM}' | grep -qE '&&|\|\|'"
+assert "the user's own custom.cfg entries are kept" grep -q 'My own entry' "${CUSTOM}"
+bash "${TOOL}" >/dev/null
+assert "running again: still one Windows block" bash -c "[ \"\$(${WIN_COUNT})\" = 1 ]"
+bash "${TOOL}" windows-off >/dev/null
+assert "windows-off removes it, keeps the rest" bash -c "[ \"\$(${WIN_COUNT})\" = 0 ] && grep -q 'My own entry' '${CUSTOM}'"
+bash "${TOOL}" >/dev/null
+assert "and it stays off at the next start" bash -c "[ \"\$(${WIN_COUNT})\" = 0 ]"
+bash "${TOOL}" windows-on >/dev/null
+assert "windows-on puts it back" bash -c "[ \"\$(${WIN_COUNT})\" = 1 ]"
+bash "${TOOL}" off >/dev/null
+assert "the Windows entry doesn't depend on the theme" bash -c "[ \"\$(${WIN_COUNT})\" = 1 ]"
 
 echo
 if (( failures > 0 )); then echo "${failures} test(s) failed"; exit 1; fi

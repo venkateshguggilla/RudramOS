@@ -36,6 +36,17 @@ done
 (cd "${GRUB_THEME}" && find . -type f ! -name .stamp -print0 | sort -z | xargs -0 sha256sum | sha256sum >.stamp)
 chmod 0755 /usr/libexec/pcos/pcos-grub-theme /usr/libexec/pcos/pcos-image-rename /usr/libexec/pcos/pcos-update /usr/libexec/pcos/pcos-app-store
 systemctl enable pcos-grub-theme.service
+# What it writes into /boot (theme block, Windows entry) must be valid GRUB script: a mistake there
+# would break the boot menu, so check it with GRUB's own parser here
+command -v grub2-script-check >/dev/null || dnf5 install -y grub2-tools-minimal
+GRUB_CHECK=$(mktemp -d)
+mkdir -p "${GRUB_CHECK}/grub2"
+PCOS_GRUB_DIR="${GRUB_CHECK}/grub2" PCOS_NO_GRUB_THEME="${GRUB_CHECK}/no-theme" PCOS_NO_WINDOWS_ENTRY="${GRUB_CHECK}/no-win" \
+    /usr/libexec/pcos/pcos-grub-theme apply
+for cfg in "${GRUB_CHECK}/grub2/user.cfg" "${GRUB_CHECK}/grub2/custom.cfg"; do
+    grub2-script-check "${cfg}"
+done
+rm -rf "${GRUB_CHECK}"
 # Dock: the base image's apps plus Mission Center (task manager: running apps and processes,
 # End task, CPU/GPU/memory/disk use). Preinstalled from Flathub like Bazaar.
 python3 /ctx/gnome-list-add.py /etc/dconf/db/distro.d/zz8-rudramos-dock favorite-apps io.missioncenter.MissionCenter.desktop

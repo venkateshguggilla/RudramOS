@@ -477,3 +477,62 @@ def phone_status(extensions_dir: str = "/usr/share/gnome-shell/extensions",
     except (OSError, subprocess.SubprocessError):
         pass
     return PhoneStatus(installed=installed, enabled=enabled, paired=paired, screens=screens)
+
+
+# ---- Dual boot with Windows ----
+
+EFI_GLOBAL = "8be4df61-93ca-11d2-aa0d-00e098032b8c"
+
+
+def efi_boot_entries(efivars: str = "/sys/firmware/efi/efivars") -> list[str]:
+    """Names of the PC's firmware boot entries (Boot####), e.g. "Windows Boot Manager".
+
+    Read straight from efivarfs, which any user may read: 4 bytes of variable attributes, then
+    an EFI_LOAD_OPTION (UINT32 attributes, UINT16 path length, UTF-16 description, NUL)."""
+    names = []
+    try:
+        files = sorted(os.listdir(efivars))
+    except OSError:
+        return names
+    for f in files:
+        if not re.fullmatch(rf"Boot[0-9A-Fa-f]{{4}}-{EFI_GLOBAL}", f):
+            continue
+        try:
+            with open(os.path.join(efivars, f), "rb") as fh:
+                data = fh.read(4096)
+        except OSError:
+            continue
+        desc = data[10:]
+        end = next((i for i in range(0, len(desc) - 1, 2) if desc[i] == 0 and desc[i + 1] == 0), len(desc))
+        name = desc[:end].decode("utf-16-le", errors="replace").strip()
+        if name:
+            names.append(name)
+    return names
+
+
+def windows_installed(efivars: str = "/sys/firmware/efi/efivars") -> bool:
+    return any("windows boot manager" in n.lower() for n in efi_boot_entries(efivars))
+
+
+def local_rtc(run=subprocess.run) -> bool | None:
+    """The hardware clock keeps local time (as Windows does) instead of UTC; None = unknown."""
+    try:
+        out = run(["timedatectl", "show", "-p", "LocalRTC", "--value"], capture_output=True, text=True, timeout=10).stdout
+    except (OSError, subprocess.SubprocessError):
+        return None
+    value = out.strip()
+    return {"yes": True, "no": False}.get(value)
+
+
+@dataclass
+class DualBoot:
+    windows: bool  # Windows is installed on this PC (firmware boot entry)
+    local_rtc: bool | None  # hardware clock in local time, like Windows
+    menu_entry: bool  # Windows is offered in the RudramOS boot menu
+
+
+def dual_boot_status(efivars: str = "/sys/firmware/efi/efivars", no_entry_flag: str = "/etc/pcos/no-windows-entry",
+                     run=subprocess.run) -> DualBoot:
+    windows = windows_installed(efivars)
+    return DualBoot(windows=windows, local_rtc=local_rtc(run) if windows else None,
+                    menu_entry=not os.path.exists(no_entry_flag))
