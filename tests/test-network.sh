@@ -86,7 +86,10 @@ assert "bad trust level refused" bash -c "! bash '${TOOL}' trust bbbb-2222 trust
 assert "apply-device for Wi-Fi uses its trust" bash -c "bash '${TOOL}' apply-device wlp2s0 aaaa-1111 && grep -qxF -- '--zone=pcos-public --change-interface=wlp2s0' '${FW_LOG}'"
 assert "apply-device ignores bridges" bash -c "bash '${TOOL}' apply-device virbr0 zzzz && ! grep -q virbr0 '${FW_LOG}'"
 
+assert "trust Wi-Fi as home" bash "${TOOL}" trust aaaa-1111 home
+: >"${FW_LOG}"
 assert "share phone on" bash "${TOOL}" share phone on
+assert "  networks re-applied after the reload (it drops runtime zones)" bash -c "grep -A9 -xF -- '--reload' '${FW_LOG}' | grep -qxF -- '--zone=pcos-home --change-interface=wlp2s0'"
 assert "  kdeconnect added to Home zone only" bash -c "grep -qxF -- '--permanent --zone=pcos-home --add-service=kdeconnect' '${FW_LOG}' && ! grep -q 'pcos-public --add-service' '${FW_LOG}'"
 assert "share ssh on starts sshd" bash -c "bash '${TOOL}' share ssh on && grep -qx 'enable --now sshd.service' '${SYSTEMCTL_LOG}'"
 assert "status shows shared services" bash -c "bash '${TOOL}' status | grep -q 'phone: on' && bash '${TOOL}' status | grep -q 'ssh: on'"
@@ -95,6 +98,7 @@ assert "share lan-share on" bash -c "bash '${TOOL}' share lan-share on && grep -
 assert "  status shows lan-share" bash -c "bash '${TOOL}' status | grep -q 'lan-share: on'"
 assert "share phone off" bash -c "bash '${TOOL}' share phone off && ! grep -qx kdeconnect '${FW_SERVICES}'"
 assert "stop-sharing closes everything (incl. lan-share) and stops sshd" bash -c "bash '${TOOL}' stop-sharing && [ ! -s '${FW_SERVICES}' ] && grep -qx 'disable --now sshd.service' '${SYSTEMCTL_LOG}'"
+assert "  networks re-applied after the reload" bash -c "grep -A9 -xF -- '--reload' '${FW_LOG}' | tail -n +2 | grep -qxF -- '--zone=pcos-home --change-interface=wlp2s0'"
 assert "status: nothing shared" bash -c "bash '${TOOL}' status | grep -q 'nothing shared'"
 
 assert "trust back to public removes entry" bash -c "bash '${TOOL}' trust bbbb-2222 public && ! grep -q bbbb-2222 '${TRUSTED_FILE}'"

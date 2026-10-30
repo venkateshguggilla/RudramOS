@@ -67,6 +67,8 @@ apply_device() {
     firewall-cmd --zone="$(zone_for "${uuid}")" --change-interface="${dev}" >/dev/null
 }
 
+# Zones are set at runtime only, so every firewall reload must be followed by this, or the
+# reload drops the networks back into the default zone (Public).
 apply_all() {
     while IFS=$'\t' read -r uuid _ dev _; do
         firewall-cmd --zone="$(zone_for "${uuid}")" --change-interface="${dev}" >/dev/null
@@ -128,6 +130,7 @@ share)
         [[ "$1" == ssh ]] && systemctl disable --now sshd.service
     fi
     firewall-cmd --reload >/dev/null
+    apply_all
     echo "$1 is $2 on Home networks (always closed on Public networks)."
     ;;
 stop-sharing)
@@ -137,6 +140,7 @@ stop-sharing)
     done
     systemctl disable --now sshd.service >/dev/null 2>&1 || true
     firewall-cmd --reload >/dev/null
+    apply_all
     echo "All sharing stopped."
     ;;
 apply)
