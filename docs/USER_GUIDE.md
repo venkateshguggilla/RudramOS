@@ -27,6 +27,10 @@ the app grid (**Welcome to RudramOS**).
 **Do this one thing even if you skip the rest:** create the disk **recovery key** and write it
 down (Welcome → Disk encryption, or Control Center → Disk).
 
+## Finding and opening apps
+Type in the **Search apps** box at the left end of the dock. Matching apps are listed above it:
+click one, or pick it with the arrow keys and press **Enter**. **Esc** closes the list.
+
 ## Installing apps
 Open **App Store** (in the dock, a shopping bag). Find an app, press **Install**, and approve with
 your password. The prompt says what is being installed, for example *"The App Store wants to

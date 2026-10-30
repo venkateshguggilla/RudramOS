@@ -1,0 +1,7 @@
+{
+  "uuid": "rudramos-dock-search@rudramos",
+  "name": "RudramOS dock search",
+  "description": "A search box at the left end of the dock: type to list matching apps, then click one or press Enter to open it.",
+  "shell-version": ["48", "49", "50"],
+  "url": "https://github.com/venkateshguggilla/RudramOS"
+}

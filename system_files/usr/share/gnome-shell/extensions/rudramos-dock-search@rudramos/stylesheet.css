@@ -1,0 +1,38 @@
+/* RudramOS dock search: the box in the dock and the list of apps above it */
+.rudramos-dock-search {
+    width: 11em;
+    min-height: 0;
+    margin: 0 6px;
+    padding: 2px 10px;
+    border-radius: 999px;
+    font-size: 0.9em;
+}
+
+.rudramos-dock-search-results {
+    min-width: 18em;
+    padding: 6px;
+    border-radius: 12px;
+    background-color: rgba(30, 30, 30, 0.96);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+.rudramos-dock-search-result {
+    padding: 6px 10px;
+    border-radius: 8px;
+    color: #ffffff;
+}
+
+.rudramos-dock-search-result-box {
+    spacing: 10px;
+}
+
+.rudramos-dock-search-result:hover,
+.rudramos-dock-search-result:selected {
+    background-color: -st-accent-color;
+}
+
+.rudramos-dock-search-empty {
+    padding: 6px 10px;
+    color: rgba(255, 255, 255, 0.6);
+}

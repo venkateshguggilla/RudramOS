@@ -286,7 +286,11 @@ if command -v desktop-file-validate >/dev/null; then desktop-file-validate /usr/
 GSCONNECT=/usr/share/gnome-shell/extensions/gsconnect@andyholmes.github.io
 [[ -f "${GSCONNECT}/metadata.json" ]] || dnf5 install -y gnome-shell-extension-gsconnect
 [[ -f "${GSCONNECT}/metadata.json" ]] || { echo "ERROR: GSConnect is not installed" >&2; exit 1; }
-python3 /ctx/gnome-list-add.py /etc/dconf/db/distro.d/zz8-rudramos-extensions enabled-extensions gsconnect@andyholmes.github.io
+# Also the dock's app search box (system_files/usr/share/gnome-shell/extensions). One call for
+# both: gnome-list-add.py rewrites the whole file each time.
+DOCK_SEARCH=/usr/share/gnome-shell/extensions/rudramos-dock-search@rudramos
+[[ -f "${DOCK_SEARCH}/metadata.json" && -f "${DOCK_SEARCH}/extension.js" ]] || { echo "ERROR: dock search extension missing" >&2; exit 1; }
+python3 /ctx/gnome-list-add.py /etc/dconf/db/distro.d/zz8-rudramos-extensions enabled-extensions gsconnect@andyholmes.github.io rudramos-dock-search@rudramos
 dconf update
 # Phone screen: scrcpy's own build (Containerfile scrcpy stage) behind pcos-phone. adb talks to
 # the phone over USB once USBGuard and the phone allow it; 70-rudramos-android.rules gives the

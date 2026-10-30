@@ -23,3 +23,14 @@ color-scheme='prefer-dark'
 [org/gnome/shell/extensions/Logo-menu]
 use-custom-icon=true
 custom-icon-path='/usr/share/pixmaps/rudramos-logo-white.svg'
+
+# Dock (Dash to Dock): always visible and slim, about the top bar's height (Bluefin's
+# dock-fixed in its gschema override doesn't reach the extension's own schema). Apps button at
+# the left end, next to the app search box (rudramos-dock-search extension).
+[org/gnome/shell/extensions/dash-to-dock]
+dock-fixed=true
+autohide=false
+intellihide=false
+dash-max-icon-size=20
+custom-theme-shrink=true
+show-apps-at-top=true
