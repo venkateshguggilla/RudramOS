@@ -50,7 +50,7 @@ RUN curl -fsSLo scrcpy.tar.gz \
 # LAN Share (https://github.com/venkateshguggilla/lan-share), a pinned commit: share files with
 # PCs and phones on Home networks. Its tests must pass (the Electron ones under a virtual display).
 FROM docker.io/library/node:22-bookworm AS lan-share
-ARG LAN_SHARE_REF="6a9e97bbdffb22bf20c3883a1497fab8f61f4fe0"
+ARG LAN_SHARE_REF="0d6d3a9d186715aa37d9470f242411dfbc2d93f1"
 WORKDIR /src
 RUN apt-get update -qq \
     && apt-get install -y -qq --no-install-recommends xvfb xauth libnss3 libgtk-3-0 libgbm1 libasound2 >/dev/null \
