@@ -302,7 +302,7 @@ Repo: `C:\Venky\work\pc_cleaner` (or `apps/pc-cleaner`)
 
 ## Phase 13: Hardening review, hardware testing, v1.0 (M)
 - [x] **LAN Share** built in (venkateshguggilla/lan-share, MIT, pinned commit): share files with PCs and phones on Home networks. Containerfile stage runs its unit and Electron end-to-end tests (xvfb); firewalld service `lan-share` (UDP 47820, TCP 47821-47830) opened only in `pcos-home` via `pcos-network share lan-share` / Control Center → Network; the app stays silent until the network is Home and sharing is allowed; chrome-sandbox never setuid (user namespaces)
-- [ ] Check LAN Share between two RudramOS PCs and a phone on a Home network, and that nothing answers on a Public one
+- [ ] Check LAN Share between two RudramOS PCs and a phone on a Home network (including an upload longer than 5 minutes, such as a big video), and that nothing answers on a Public one
 - [x] **Dual boot with Windows:** a Windows entry in `/boot/grub2/custom.cfg` (pcos-grub-theme) that GRUB adds only when it finds `EFI/Microsoft/Boot/bootmgfw.efi` on a drive, with the menu then waiting 5 s; checked with `grub2-script-check` at build time; Control Center → System "Windows on this PC" (entry on/off, *Same clock as Windows* = `timedatectl set-local-rtc`), a Welcome to RudramOS step when a "Windows Boot Manager" firmware entry exists (read from efivarfs, no root), dual-boot BIOS advice; README and user guide; tests
 - [ ] Check dual boot on a real PC (Windows entry starts Windows; BitLocker behaviour; clock)
 - [ ] Full test pass on: Hyper-V VM, RTX 3060 PC, GTX 1050 Ti PC, dev PC (AMD 5500M; T2 caveats)
