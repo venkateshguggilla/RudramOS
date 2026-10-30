@@ -4,19 +4,28 @@
 # only switches to the theme if its files are present, so GRUB falls back to its plain menu if
 # anything is missing.
 #
+# Also keeps a "Windows" entry in /boot/grub2/custom.cfg (read after the RudramOS entries). It's
+# decided by GRUB itself at every start: only if Windows' boot manager is found on a drive does
+# the entry appear, and then the menu waits 5 seconds instead of 1.
+#
 # Usage: pcos-grub-theme [apply]   install or update the theme (pcos-grub-theme.service, at boot)
 #        pcos-grub-theme off       use GRUB's plain menu from now on (Control Center → System)
 #        pcos-grub-theme on        back to the RudramOS theme
+#        pcos-grub-theme windows-off | windows-on   leave Windows out of the menu, or back in
 set -euo pipefail
 
 # Paths can be overridden for tests (tests/test-grub-theme.sh)
 SRC="${PCOS_GRUB_THEME_SRC:-/usr/share/pcos/grub/rudramos}"
 GRUB="${PCOS_GRUB_DIR:-/boot/grub2}"
 FLAG="${PCOS_NO_GRUB_THEME:-/etc/pcos/no-grub-theme}"
+NO_WINDOWS="${PCOS_NO_WINDOWS_ENTRY:-/etc/pcos/no-windows-entry}"
 DEST="${GRUB}/themes/rudramos"
 CFG="${GRUB}/user.cfg"
+CUSTOM="${GRUB}/custom.cfg"
 BEGIN="### BEGIN RudramOS boot menu theme"
 END="### END RudramOS boot menu theme"
+WIN_BEGIN="### BEGIN RudramOS Windows entry"
+WIN_END="### END RudramOS Windows entry"
 
 case "${1:-apply}" in
 apply) ;;
@@ -25,8 +34,13 @@ off)
     mkdir -p "$(dirname "${FLAG}")"
     touch "${FLAG}"
     ;;
+windows-on) rm -f "${NO_WINDOWS}" ;;
+windows-off)
+    mkdir -p "$(dirname "${NO_WINDOWS}")"
+    touch "${NO_WINDOWS}"
+    ;;
 *)
-    echo "usage: $0 [apply|on|off]" >&2
+    echo "usage: $0 [apply|on|off|windows-on|windows-off]" >&2
     exit 2
     ;;
 esac
@@ -45,6 +59,40 @@ remove_block() {
     [[ -f "${CFG}" ]] && sed -i "/^${BEGIN}\$/,/^${END}\$/d" "${CFG}"
     return 0
 }
+
+# Windows (UEFI) next to RudramOS: GRUB looks for Windows' boot manager on every drive at each
+# start, so nothing here has to detect it, and the entry disappears by itself if Windows does.
+# (GRUB script: plain nested ifs only, nothing shell-only like && that GRUB may not parse)
+WIN_BLOCK="${WIN_BEGIN}
+if [ \"\${grub_platform}\" = \"efi\" ]; then
+  if search --no-floppy --file --set=pcos_windows /EFI/Microsoft/Boot/bootmgfw.efi; then
+    menuentry \"Windows\" --class windows --class os --id windows {
+      insmod part_gpt
+      insmod fat
+      insmod chain
+      search --no-floppy --file --set=root /EFI/Microsoft/Boot/bootmgfw.efi
+      chainloader /EFI/Microsoft/Boot/bootmgfw.efi
+    }
+    if [ \"\${timeout}\" -lt 5 ]; then
+      set timeout=5
+    fi
+  fi
+fi
+${WIN_END}"
+
+update_windows_entry() {
+    local current=""
+    [[ -f "${CUSTOM}" ]] && current=$(sed -n "/^${WIN_BEGIN}\$/,/^${WIN_END}\$/p" "${CUSTOM}")
+    if [[ -e "${NO_WINDOWS}" ]]; then
+        [[ -n "${current}" ]] && sed -i "/^${WIN_BEGIN}\$/,/^${WIN_END}\$/d" "${CUSTOM}" && echo "Windows entry removed"
+        return 0
+    fi
+    [[ "${current}" == "${WIN_BLOCK}" ]] && return 0
+    [[ -f "${CUSTOM}" ]] && sed -i "/^${WIN_BEGIN}\$/,/^${WIN_END}\$/d" "${CUSTOM}"
+    printf '%s\n' "${WIN_BLOCK}" >>"${CUSTOM}"
+    echo "Windows entry added (shown only when Windows is found)"
+}
+update_windows_entry
 
 if [[ -e "${FLAG}" ]]; then
     remove_block

@@ -36,6 +36,11 @@ class StepTests(unittest.TestCase):
         self.assertIn("graphics", firstboot.steps(ctx(nvidia=True, mok="missing")))
         self.assertIn("graphics", firstboot.steps(ctx(nvidia=True, mok="pending")))
 
+    def test_dual_boot_step_only_with_windows(self):
+        self.assertNotIn("windows", firstboot.steps(ctx()))
+        steps = firstboot.steps(ctx(windows=True))
+        self.assertEqual(steps[-3:], ["windows", "protect", "done"])
+
     def test_always_starts_and_ends_the_same(self):
         for c in (ctx(), ctx(networks=0, phone_link=False, encrypted=False)):
             s = firstboot.steps(c)

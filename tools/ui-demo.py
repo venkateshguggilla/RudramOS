@@ -21,7 +21,11 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 from gi.repository import Adw, GLib  # noqa: E402
 
-from pcos_control import app, dialogs, setup  # noqa: E402
+from pcos_control import app, dialogs, setup, status  # noqa: E402
+
+# Draw the dual-boot parts too: pretend Windows is installed, clock still in UTC
+status.dual_boot_status = lambda *a, **k: status.DualBoot(windows=True, local_rtc=False, menu_entry=True)
+status.windows_installed = lambda *a, **k: True
 
 OUT = os.environ.get("OUT", "shots")
 os.makedirs(OUT, exist_ok=True)
@@ -96,12 +100,12 @@ def main() -> int:
 
         def setup_window():
             close_dialogs(win)
-            sw = setup.SetupWindow(["welcome", "admin", "disk", "privacy", "protect", "done"], application=a)
+            sw = setup.SetupWindow(["welcome", "admin", "disk", "privacy", "windows", "protect", "done"], application=a)
             sw.present()
             win.setup_window = sw
 
         steps.append(("setup-welcome", setup_window))
-        for i in range(1, 6):
+        for i in range(1, 7):
             steps.append((f"setup-step-{i + 1}", lambda: win.setup_window.go(win.setup_window.index + 1)))
         steps.append(("end", lambda: a.quit()))
 

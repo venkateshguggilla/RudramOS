@@ -237,6 +237,7 @@ class Window(Adw.ApplicationWindow):
                 "disk": status.disk_status(),
                 "graphics": status.graphics_status(),
                 "system": status.system_status(),
+                "dual_boot": status.dual_boot_status(),
             }
             GLib.idle_add(self._apply, data)
 
@@ -264,7 +265,7 @@ class Window(Adw.ApplicationWindow):
         self._set_groups("privacy", self._privacy(data["privacy"]))
         self._set_groups("disk", self._disk(data["disk"]))
         self._set_groups("graphics", self._graphics(data["graphics"], data["updates"]))
-        self._set_groups("system", self._system(data["system"], data["boot_menu"]))
+        self._set_groups("system", self._system(data["system"], data["boot_menu"]) + self._dual_boot(data["dual_boot"]))
         self._loading = False
         return GLib.SOURCE_REMOVE
 
@@ -695,6 +696,26 @@ class Window(Adw.ApplicationWindow):
         rows.append(button_row("Welcome to RudramOS", "Go through the first-time setup again, step by step.", "Open",
                                lambda: Gio.Subprocess.new([SETUP], Gio.SubprocessFlags.NONE)))
         return [group("RudramOS", "Updates are on the Updates page.", rows), group("Start-up", "", start_up)]
+
+    def _dual_boot(self, d: status.DualBoot) -> list[Adw.PreferencesGroup]:
+        """Windows on the same PC: its boot menu entry and the shared hardware clock."""
+        if not d.windows:
+            return []
+        entry = Adw.SwitchRow(title="Windows in the boot menu",
+                              subtitle="The menu waits 5 seconds at start-up: choose Windows with the arrow keys and Enter.",
+                              active=d.menu_entry)
+        entry.connect("notify::active", lambda r, _p: self._privileged(
+            [GRUB_THEME, "windows-on" if r.get_active() else "windows-off"],
+            "Windows is in the boot menu." if r.get_active() else "Windows left out of the boot menu "
+            "(start it with the PC's boot key, often F12)."))
+        clock = Adw.SwitchRow(title="Same clock as Windows",
+                              subtitle="Windows keeps the PC's hardware clock in local time. On: the time stays right "
+                                       "in both. Off: the time jumps when you switch (by your time zone's offset).",
+                              active=bool(d.local_rtc))
+        clock.connect("notify::active", lambda r, _p: self._user_cmd(
+            ["timedatectl", "set-local-rtc", "1" if r.get_active() else "0"],
+            "The clock now matches Windows." if r.get_active() else "The hardware clock is in UTC again."))
+        return [group("Windows on this PC", "RudramOS and Windows share this computer.", [entry, clock])]
 
     # ---- actions ----
 

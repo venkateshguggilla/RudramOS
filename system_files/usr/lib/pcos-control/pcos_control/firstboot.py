@@ -25,6 +25,7 @@ class Context:
     mok: str  # secure boot key state, see mok_state()
     networks: int  # connected Wi-Fi / wired networks
     phone_link: bool  # GSConnect installed
+    windows: bool = False  # Windows is installed too (dual boot)
 
 
 def mok_state(secure_boot: bool | None, key: str = SECUREBOOT_KEY, pending_flag: str = MOK_PENDING_FLAG,
@@ -57,6 +58,8 @@ def steps(ctx: Context) -> list[str]:
         out.append("graphics")
     if ctx.phone_link:
         out.append("phone")
+    if ctx.windows:
+        out.append("windows")
     out += ["protect", "done"]
     return out
 

@@ -32,6 +32,7 @@ TITLES = {
     "network": "This network",
     "graphics": "Graphics driver",
     "phone": "Your phone",
+    "windows": "Windows on this PC",
     "protect": "Protect this PC",
     "done": "All set",
 }
@@ -47,6 +48,7 @@ def context() -> firstboot.Context:
         mok=firstboot.mok_state(disk.secure_boot),
         networks=len(status.network_status().networks),
         phone_link=status.phone_status().installed,
+        windows=status.windows_installed(),
     )
 
 
@@ -133,6 +135,8 @@ class SetupWindow(Window):
             elif step == "phone":
                 data["phone"] = status.phone_status()
                 data["network"] = status.network_status()
+            elif step in ("windows", "protect"):
+                data["dual_boot"] = status.dual_boot_status()
             GLib.idle_add(self._show, step, data)
 
         threading.Thread(target=load, daemon=True).start()
@@ -216,14 +220,27 @@ class SetupWindow(Window):
                              "files and clipboard, like Continuity on a Mac. More in Control Center → Phone.")
         return [link]
 
-    def _step_protect(self, _data) -> list[Gtk.Widget]:
+    def _step_windows(self, data) -> list[Gtk.Widget]:
+        intro = group("RudramOS and Windows on one PC",
+                      "At start-up the boot menu now waits 5 seconds: RudramOS starts by itself, or choose Windows "
+                      "with the arrow keys and Enter. Turn on \"Same clock as Windows\" so the time is right in both.\n\n"
+                      "If Windows uses BitLocker and asks for its recovery key when started from this menu, start it "
+                      "with the PC's boot key (often F12) instead, or suspend and resume BitLocker once in Windows.", [])
+        return [intro, *self._dual_boot(data["dual_boot"])]
+
+    def _step_protect(self, data) -> list[Gtk.Widget]:
+        dual = bool(data.get("dual_boot") and data["dual_boot"].windows)
+        start_from = (info_row("Start only from this PC's drives",
+                               "Windows and RudramOS stay; turn off starting from USB drives, and lock the start-up "
+                               "order with the BIOS password.") if dual else
+                      info_row("Start only from this drive",
+                               "Turn off starting from USB drives (or put this drive first and lock the order "
+                               "with the BIOS password)."))
         firmware = group("Settings only the BIOS can change",
                          "They stop someone with the PC in hand from starting another system to get around RudramOS.", [
                              info_row("Set a BIOS / UEFI password",
                                       "So nobody can change start-up settings or turn Secure Boot off. Write it down."),
-                             info_row("Start only from this drive",
-                                      "Turn off starting from USB drives (or put this drive first and lock the order "
-                                      "with the BIOS password)."),
+                             start_from,
                              info_row("Keep Secure Boot and TPM on",
                                       "Disk unlock with the TPM depends on them."),
                              button_row("Open the BIOS settings now", "The PC restarts. Save your work first.",
