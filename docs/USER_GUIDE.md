@@ -49,10 +49,15 @@ Firefox installs only extensions you approved. Control Center → **Apps** → p
 always installed.
 
 ## USB devices
-A **new** USB device is blocked until you allow it. A notification describes it in plain words:
-- **Allow once:** until it's unplugged.
+A **new** USB device is blocked until you allow it. As soon as you plug it in, a **"USB device
+connected"** popup shows its name and what it is:
+- **Open:** type your password in the window that appears; the device works until it's unplugged,
+  and a USB drive opens in Files. (Keyboards and adapters say **Allow** instead.)
 - **Always allow:** now and every time.
 - **Keep blocked.**
+
+A drive you always allowed shows "USB drive connected" with **Open** when you plug it in, without
+asking for the password again.
 
 A red warning means the device does something unusual for what it looks like, for example a
 "USB stick" that can also type like a keyboard. That's a common attack: keep it blocked unless

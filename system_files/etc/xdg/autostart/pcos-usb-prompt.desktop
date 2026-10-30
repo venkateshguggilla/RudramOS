@@ -1,7 +1,7 @@
 [Desktop Entry]
 Type=Application
-Name=RudramOS USB Approval
-Comment=Asks before a newly connected USB device is allowed
+Name=RudramOS USB popup
+Comment="USB device connected" popup with Open, which asks for admin approval before a new device works
 Exec=/usr/libexec/pcos/pcos-usb-prompt
 Icon=drive-removable-media
 NoDisplay=true

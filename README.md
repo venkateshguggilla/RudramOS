@@ -160,7 +160,8 @@ sudo pcos-admin-mode strong
   ```
 
 ## USB devices
-- A newly connected USB device is **blocked until you allow it**. A notification describes it in plain words: **Keep blocked / Allow once / Always allow**. Devices connected when RudramOS first started are trusted.
+- A newly connected USB device is **blocked until you allow it**. Within a second of plugging it in, a **"USB device connected"** popup shows its name and what it is, with **Open** (or **Allow** for keyboards, adapters and the like), **Always allow** and **Keep blocked**. **Open** brings up the admin password window, allows the device until it's unplugged, and opens it: a drive opens in Files, a phone or camera shows in Files. Devices connected when RudramOS first started are trusted.
+- A drive you already **always allowed** gets a "USB drive connected" popup with **Open** too (no password: you approved it before).
 - **Suspicious devices** (a "USB stick" that can also type like a keyboard, or one that's also a network adapter) get a red warning. These are common USB attacks.
 - Nothing is asked, and nothing new works, while the screen is locked.
 - Security keys (YubiKey, Nitrokey, ...) are always allowed permanently once approved.

@@ -1,54 +1,225 @@
-#!/bin/bash
-# RudramOS USB approval prompt (desktop session). Shows each newly blocked USB device in plain
-# words with Block / Allow once / Always allow. Allowing needs admin approval (pkexec).
-# While the screen is locked nothing is asked: devices stay blocked until you unlock.
+#!/usr/bin/python3
+"""RudramOS USB popup (desktop session, started at login).
 
-set -uo pipefail
+As soon as a USB device is plugged in, a notification says "USB device connected" with its
+name and what it is, and an Open button:
+  - a new (blocked) device: Open asks for admin approval (the system's password window), allows
+    the device until it's unplugged, then opens it: a drive in Files, a phone or camera in Files;
+    other devices (keyboard, adapter, ...) simply start working
+  - a drive that's already always-allowed: Open opens it in Files (no password: already approved)
+Suspicious devices (a "drive" that can also type, a disguised security key...) get a red warning
+and "Open anyway". Nothing is asked while the screen is locked: devices stay blocked until you
+unlock. The root side is pcos-usb-watch, which publishes blocked devices to /run/pcos/usb-pending.
+"""
 
-PENDING=/run/pcos/usb-pending
-DESCRIBE=/usr/libexec/pcos/pcos-usb-describe
-declare -A asked=()
+from __future__ import annotations
 
-screen_locked() {
-    gdbus call --session --dest org.gnome.ScreenSaver --object-path /org/gnome/ScreenSaver \
-        --method org.gnome.ScreenSaver.GetActive 2>/dev/null | grep -q true
-}
+import glob
+import os
+import re
+import subprocess
+import sys
+import threading
+import time
+from xml.sax.saxutils import escape
 
-ask() {
-    local id="$1" rule="$2" kind name level message urgency=normal choice
-    IFS=$'\t' read -r kind name level message < <("${DESCRIBE}" "${rule}")
-    local actions=(--action=block="Keep blocked")
-    case "${level}" in
-    danger)
-        urgency=critical
-        actions+=(--action=once="Allow anyway (once)") ;;
-    *)
-        if [[ "${kind}" == "Security key" ]]; then
-            actions+=(--action=always="Allow")
-        else
-            actions+=(--action=once="Allow once" --action=always="Always allow")
-        fi ;;
-    esac
-    local title="New USB device: ${name}"
-    [[ "${level}" == danger ]] && title="⚠ Suspicious USB device: ${name}"
-    choice=$(notify-send --app-name="RudramOS" --icon=drive-removable-media --urgency="${urgency}" --wait \
-        "${actions[@]}" "${title}" "${kind}. ${message}")
-    case "${choice}" in
-    once) pkexec /usr/bin/pcos-usb allow "${id}" >/dev/null ;;
-    always) pkexec /usr/bin/pcos-usb allow "${id}" --permanent >/dev/null ;;
-    *) ;; # Keep blocked, or dismissed
-    esac
-}
+PENDING = os.environ.get("PCOS_USB_PENDING", "/run/pcos/usb-pending")
+SYSFS_USB = os.environ.get("PCOS_SYSFS_USB", "/sys/bus/usb/devices")
+DESCRIBE = "/usr/libexec/pcos/pcos-usb-describe"
+USB = "/usr/bin/pcos-usb"
+POLL = 0.5  # seconds; pcos-usb-watch publishes at the same pace
+OPENABLE = ("Storage", "Camera/phone (photos)")  # kinds that Open shows in Files
+QUIET_AFTER_OPEN = 60.0  # seconds: no second "drive connected" popup for a drive just opened
 
-while true; do
-    if [[ -d "${PENDING}" ]] && ! screen_locked; then
-        for f in "${PENDING}"/*; do
-            [[ -f "${f}" ]] || continue
-            id=$(basename "${f}")
-            [[ -n "${asked[${id}]+x}" ]] && continue
-            asked[${id}]=1
-            ask "${id}" "$(cat "${f}")" &
-        done
-    fi
-    sleep 2
-done
+
+# ---------------------------------------------------------------- pure helpers (tested)
+
+def port_of(rule: str) -> str:
+    """USB port of a USBGuard device rule, e.g. 'via-port "1-2"' -> "1-2"."""
+    m = re.search(r'\bvia-port "([0-9]+-[0-9.]+)"', rule)
+    return m.group(1) if m else ""
+
+
+def popup(kind: str, name: str, level: str, message: str,
+          allowed: bool = False) -> tuple[str, str, list[tuple[str, str]], str]:
+    """(title, body markup, [(action id, label)], urgency) for a device's notification."""
+    openable = any(k in kind for k in OPENABLE)
+    body = f"<b>{escape(name)}</b>\n{escape(kind)}. {escape(message)}"
+    if allowed:
+        return ("USB drive connected", f"<b>{escape(name)}</b>\nAlready allowed on this PC.",
+                [("open", "Open")], "normal")
+    if level == "danger":
+        return ("⚠ Suspicious USB device connected", body,
+                [("open", "Open anyway" if openable else "Allow anyway"), ("block", "Keep blocked")], "critical")
+    if kind == "Security key":
+        return "USB device connected", body, [("always", "Allow"), ("block", "Keep blocked")], "normal"
+    return ("USB device connected", body,
+            [("open", "Open" if openable else "Allow"), ("always", "Always allow"), ("block", "Keep blocked")],
+            "normal")
+
+
+def block_devices(port: str, sysfs: str = SYSFS_USB) -> list[str]:
+    """/dev names to mount for the drive on a USB port: its partitions, or the whole disk."""
+    if not port:
+        return []
+    base = os.path.join(sysfs, port)
+    disks = sorted({os.path.basename(p) for p in glob.glob(os.path.join(base, "**", "block", "*"), recursive=True)})
+    devs = []
+    for disk in disks:
+        parts = sorted({os.path.basename(p) for p in glob.glob(os.path.join(base, "**", "block", disk, f"{disk}*"),
+                                                               recursive=True)} - {disk})
+        devs += [f"/dev/{p}" for p in parts] or [f"/dev/{disk}"]
+    return devs
+
+
+def parse_udev(block: str) -> dict[str, str]:
+    """KEY=VALUE lines of one `udevadm monitor --property` event."""
+    props = {}
+    for line in block.splitlines():
+        key, sep, value = line.partition("=")
+        if sep and key.isupper():
+            props[key] = value
+    return props
+
+
+def usb_drive_added(props: dict[str, str]) -> bool:
+    """A filesystem on a USB drive just appeared (already allowed: it reached the block layer)."""
+    return (props.get("ACTION") == "add" and props.get("SUBSYSTEM") == "block" and props.get("ID_BUS") == "usb"
+            and props.get("ID_FS_USAGE") == "filesystem" and bool(props.get("DEVNAME")))
+
+
+def port_of_devpath(devpath: str) -> str:
+    """USB port from a sysfs path like .../usb1/1-2/1-2:1.0/host6/.../block/sdb/sdb1 -> "1-2"."""
+    m = re.search(r"/([0-9]+-[0-9.]+)/\1:", devpath)
+    return m.group(1) if m else ""
+
+
+def drive_name(props: dict[str, str]) -> str:
+    label = props.get("ID_FS_LABEL_ENC") or props.get("ID_FS_LABEL") or ""
+    label = re.sub(r"\\x([0-9a-fA-F]{2})", lambda m: chr(int(m.group(1), 16)), label)
+    model = (props.get("ID_VENDOR", "") + " " + props.get("ID_MODEL", "")).replace("_", " ").strip()
+    return label or model or "USB drive"
+
+
+# ---------------------------------------------------------------- desktop side
+
+def screen_locked() -> bool:
+    out = subprocess.run(["gdbus", "call", "--session", "--dest", "org.gnome.ScreenSaver", "--object-path",
+                          "/org/gnome/ScreenSaver", "--method", "org.gnome.ScreenSaver.GetActive"],
+                         capture_output=True, text=True).stdout
+    return "true" in out
+
+
+def notify(title: str, body: str, actions: list[tuple[str, str]], urgency: str) -> str:
+    """Shows the notification and waits for a click; returns the action id ("" if dismissed)."""
+    args = ["notify-send", "--app-name=RudramOS", "--icon=drive-removable-media", f"--urgency={urgency}", "--wait"]
+    args += [f"--action={a}={label}" for a, label in actions]
+    return subprocess.run(args + [title, body], capture_output=True, text=True).stdout.strip()
+
+
+def mount_point(dev: str) -> str:
+    out = subprocess.run(["findmnt", "-n", "-o", "TARGET", "--source", dev], capture_output=True, text=True).stdout
+    return out.strip().splitlines()[0] if out.strip() else ""
+
+
+def open_drive(devs: list[str]) -> None:
+    """Mounts (GNOME usually already did) and opens the first readable filesystem in Files."""
+    for dev in devs:
+        where = mount_point(dev)
+        if not where:
+            out = subprocess.run(["udisksctl", "mount", "--no-user-interaction", "-b", dev],
+                                 capture_output=True, text=True).stdout
+            m = re.search(r" at (.+?)\.?$", out.strip())
+            where = m.group(1) if m else mount_point(dev)
+        if where:
+            subprocess.run(["gio", "open", where])
+            return
+
+
+class Prompt:
+    def __init__(self) -> None:
+        self.asked: set[str] = set()
+        self.opened_ports: dict[str, float] = {}  # port -> when a popup was shown or it was opened
+        self.lock = threading.Lock()
+
+    def ask(self, dev_id: str, rule: str) -> None:
+        out = subprocess.run([DESCRIBE, rule], capture_output=True, text=True).stdout.rstrip("\n")
+        kind, name, level, message = (out.split("\t") + ["", "", "ok", ""])[:4]
+        title, body, actions, urgency = popup(kind, name, level, message)
+        choice = notify(title, body, actions, urgency)
+        if choice not in ("open", "always"):
+            return  # Keep blocked, or dismissed: stays blocked until unplugged
+        port = port_of(rule)
+        with self.lock:  # its filesystems are about to appear: no second popup for them
+            self.opened_ports[port] = time.monotonic()
+        argv = ["pkexec", USB, "allow", dev_id] + (["--permanent"] if choice == "always" else [])
+        if subprocess.run(argv, capture_output=True).returncode != 0:
+            return  # password window cancelled
+        if choice == "open":
+            self.open_device(port, kind)
+
+    def open_device(self, port: str, kind: str) -> None:
+        if "Storage" in kind:
+            deadline = time.monotonic() + 15
+            while time.monotonic() < deadline:  # the drive's partitions appear a moment after it's allowed
+                devs = [d for d in block_devices(port) if os.path.exists(d)]
+                if devs:
+                    time.sleep(1.0)  # let GNOME mount it first
+                    open_drive(devs)
+                    return
+                time.sleep(0.5)
+        elif "Camera/phone" in kind:
+            subprocess.Popen(["nautilus", "--new-window"])  # the phone or camera shows in the sidebar
+
+    def watch_pending(self) -> None:
+        while True:
+            if os.path.isdir(PENDING) and not screen_locked():
+                for dev_id in sorted(os.listdir(PENDING)):
+                    path = os.path.join(PENDING, dev_id)
+                    if not dev_id.isdigit() or dev_id in self.asked or not os.path.isfile(path):
+                        continue
+                    self.asked.add(dev_id)
+                    with open(path, encoding="utf-8", errors="replace") as f:
+                        rule = f.read().strip()
+                    threading.Thread(target=self.ask, args=(dev_id, rule), daemon=True).start()
+            time.sleep(POLL)
+
+    def watch_allowed_drives(self) -> None:
+        """Drives that are already allowed never reach the pending list: they show up as new
+        filesystems in udev. Popup with Open, no password (they were approved before)."""
+        try:
+            proc = subprocess.Popen(["udevadm", "monitor", "--udev", "--subsystem-match=block", "--property"],
+                                    stdout=subprocess.PIPE, text=True)
+        except OSError:
+            return
+        block: list[str] = []
+        for line in proc.stdout:
+            if line.strip():
+                block.append(line.rstrip("\n"))
+                continue
+            props = parse_udev("\n".join(block))
+            block = []
+            if not usb_drive_added(props) or screen_locked():
+                continue
+            port = port_of_devpath(props.get("DEVPATH", ""))
+            with self.lock:
+                if time.monotonic() - self.opened_ports.get(port, -1e9) < QUIET_AFTER_OPEN:
+                    continue  # just asked about (or opened) through the approval popup
+                self.opened_ports[port] = time.monotonic()  # one popup per drive, not per partition
+            threading.Thread(target=self.ask_allowed, args=(props,), daemon=True).start()
+
+    def ask_allowed(self, props: dict[str, str]) -> None:
+        title, body, actions, urgency = popup("Storage", drive_name(props), "ok", "", allowed=True)
+        if notify(title, body, actions, urgency) == "open":
+            open_drive([props["DEVNAME"]])
+
+
+def main() -> int:
+    prompt = Prompt()
+    threading.Thread(target=prompt.watch_allowed_drives, daemon=True).start()
+    prompt.watch_pending()
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
