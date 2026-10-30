@@ -259,5 +259,16 @@ sudo pcos-disk-security tpm
 - `tpm`: unlocks automatically on this PC only, as long as Secure Boot is unchanged. Use `tpm-pin` to also type a PIN at boot (recommended for laptops), or `fido2` for a security key.
 - `status` shows what's set up. After a BIOS/firmware update asks for the recovery key, run `reseal`.
 
+## Dual boot with Windows
+RudramOS can share a PC with Windows (UEFI).
+- **Best:** a second drive just for RudramOS. Choose that drive in the installer and Windows' drive is never touched.
+- **Same drive:** in Windows, back up first, save the **BitLocker recovery key** (Microsoft account) and suspend BitLocker, turn off *Fast Startup*, and shrink the Windows partition in Disk Management (at least 100 GB free). In the installer's *Installation Destination*, install into the **free space only**.
+
+After installing:
+- **Boot menu:** when Windows' boot manager is found on any drive, the RudramOS boot menu shows a **Windows** entry and waits 5 seconds (otherwise 1). GRUB checks at every start, so nothing needs setting up, and the entry goes away by itself if Windows does. To leave it out: Control Center → System → *Windows in the boot menu* off (`sudo /usr/libexec/pcos/pcos-grub-theme windows-off`). The PC's own boot key (often F12) also works.
+- **Clock:** Windows keeps the hardware clock in local time, Linux in UTC, so the time jumps by your time zone's offset when switching. Turn on **Same clock as Windows** (Control Center → System, or the *Windows on this PC* step of Welcome to RudramOS), which runs `timedatectl set-local-rtc 1`.
+- **BitLocker:** if Windows asks for its recovery key when started from the RudramOS menu, start it with the PC's boot key instead, or suspend and resume BitLocker once in Windows.
+- Windows can't read RudramOS's encrypted drive. RudramOS can read Windows' files only if BitLocker is off.
+
 ## Building the installer ISO
 GitHub → Actions → **Build RudramOS installer ISO** → Run workflow (platform `amd64`, choose the **variant**). Download the `<variant>-anaconda-iso` artifact.

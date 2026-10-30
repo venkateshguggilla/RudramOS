@@ -301,6 +301,8 @@ Repo: `C:\Venky\work\pc_cleaner` (or `apps/pc-cleaner`)
 ---
 
 ## Phase 13: Hardening review, hardware testing, v1.0 (M)
+- [x] **Dual boot with Windows:** a Windows entry in `/boot/grub2/custom.cfg` (pcos-grub-theme) that GRUB adds only when it finds `EFI/Microsoft/Boot/bootmgfw.efi` on a drive, with the menu then waiting 5 s; checked with `grub2-script-check` at build time; Control Center → System "Windows on this PC" (entry on/off, *Same clock as Windows* = `timedatectl set-local-rtc`), a Welcome to RudramOS step when a "Windows Boot Manager" firmware entry exists (read from efivarfs, no root), dual-boot BIOS advice; README and user guide; tests
+- [ ] Check dual boot on a real PC (Windows entry starts Windows; BitLocker behaviour; clock)
 - [ ] Full test pass on: Hyper-V VM, RTX 3060 PC, GTX 1050 Ti PC, dev PC (AMD 5500M; T2 caveats)
 - [x] Security review: polkit actions, privileged tools' input checks, root services, fan service API, USB descriptions, file permissions. 7 findings fixed with tests (1 high: user-controlled folders in fapolicyd rules; 2 medium: fake security keys, unbounded fan service input; 4 low); accepted risks written down: [SECURITY_REVIEW.md](SECURITY_REVIEW.md)
 - [ ] Network scan of a running PC (`nmap` on Public and Home networks)

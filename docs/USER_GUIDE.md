@@ -130,6 +130,12 @@ card, not "llvmpipe".
 - **Mission Center** (dock): running apps and processes; select one and **End task** to close a
   stuck app.
 
+## Windows on the same PC
+If Windows is installed too, the boot menu waits 5 seconds at start-up: RudramOS starts by itself,
+or choose **Windows** with the arrow keys and Enter. Turn on **Same clock as Windows** (Control
+Center → System) so the time is right in both. If Windows asks for its BitLocker recovery key
+when started from this menu, start it with the PC's boot key (often F12) instead.
+
 ## When something goes wrong
 - **Keyboard or mouse don't work at the login screen:** restart, hold **Shift** (or press
   **Esc**) until the boot menu appears, press ↓ to select the second entry and press **Enter**.
