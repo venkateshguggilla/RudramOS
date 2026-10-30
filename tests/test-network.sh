@@ -18,10 +18,15 @@ case "$*" in
     echo 'aaaa-1111:802-11-wireless:wlp2s0:Cafe\: Free WiFi'
     echo 'bbbb-2222:802-3-ethernet:enp3s0:Wired connection 1'
     echo 'cccc-3333:vpn:tun0:Work VPN' ;;
-"-g connection.uuid,connection.id connection show Wired connection 1"|"-g connection.uuid,connection.id connection show bbbb-2222")
+# pcos-network looks names up with "id" and real UUIDs with "uuid", never as a bare argument, so
+# a name starting with "-" can't act as an nmcli option. The short test ids go through "id".
+"-g connection.uuid,connection.id connection show id Wired connection 1"|"-g connection.uuid,connection.id connection show id bbbb-2222")
     printf 'bbbb-2222\nWired connection 1\n' ;;
-"-g connection.uuid,connection.id connection show aaaa-1111")
+"-g connection.uuid,connection.id connection show id aaaa-1111")
     printf 'aaaa-1111\nCafe: Free WiFi\n' ;;
+"-g connection.uuid,connection.id connection show uuid 0b7c3a6e-1f2d-4c5b-9a8e-123456789abc")
+    printf '0b7c3a6e-1f2d-4c5b-9a8e-123456789abc\nHome WiFi\n' ;;
+"-g connection.uuid,connection.id connection show -"*) echo "nmcli was handed an option: $*" >&2; exit 99 ;;
 "-g GENERAL.TYPE device show wlp2s0") echo wifi ;;
 "-g GENERAL.TYPE device show enp3s0") echo ethernet ;;
 "-g GENERAL.TYPE device show virbr0") echo bridge ;;
@@ -73,6 +78,8 @@ assert "  Wi-Fi stays pcos-public" fw_has "--zone=pcos-public --change-interface
 assert "  status shows Home" bash -c "bash '${TOOL}' status | grep -q 'Wired connection 1 (enp3s0): Home (trusted)'"
 assert "trusting twice keeps one entry" bash -c "bash '${TOOL}' trust bbbb-2222 home && [ \$(grep -c bbbb-2222 '${TRUSTED_FILE}') -eq 1 ]"
 assert "unknown network refused" bash -c "! bash '${TOOL}' trust 'Nope' home"
+assert "a real UUID is looked up as a UUID" bash -c "bash '${TOOL}' trust 0b7c3a6e-1f2d-4c5b-9a8e-123456789abc home && grep -q '^0b7c3a6e-1f2d-4c5b-9a8e-123456789abc' '${TRUSTED_FILE}'"
+assert "a name starting with '-' is looked up as a name, not passed as an option" bash -c "bash '${TOOL}' trust --active home 2>&1 | grep -q 'No such network: --active'"
 assert "bad trust level refused" bash -c "! bash '${TOOL}' trust bbbb-2222 trusted"
 
 : >"${FW_LOG}"

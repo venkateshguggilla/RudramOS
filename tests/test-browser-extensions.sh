@@ -57,6 +57,12 @@ assert "Dark Reader approved with its name" jq -e '.["addon@darkreader.org"].nam
 expect "approve by id without url" 0 bash "${TOOL}" approve "example@extension.test"
 assert "id-only approval is 'allowed'" policy '.policies.ExtensionSettings["example@extension.test"].installation_mode == "allowed"'
 assert "still blocks everything else" policy '.policies.ExtensionSettings["*"].installation_mode == "blocked"'
+# Security review: ids and install links typed by hand are checked
+expect "approve by {uuid} id with an https link" 0 bash "${TOOL}" approve "{12345678-1234-1234-1234-123456789abc}" "https://example.org/ext.xpi"
+expect "an id that isn't a Firefox extension id is refused" 1 bash "${TOOL}" approve 'a@b" bad'
+expect "a plain-http install link is refused" 1 bash "${TOOL}" approve "other@extension.test" "http://example.org/ext.xpi"
+expect "an install link with a space is refused" 1 bash "${TOOL}" approve "other@extension.test" "https://example.org/a b.xpi"
+assert "refused ids weren't saved" jq -e 'has("other@extension.test") | not' "${APPROVED}"
 expect "unknown AMO slug fails cleanly" 1 bash "${TOOL}" approve "https://addons.mozilla.org/firefox/addon/no-such-thing/"
 expect "list shows approvals" 0 bash "${TOOL}" list
 assert "list includes Bitwarden" bash -c "bash '${TOOL}' list | grep -q 'Bitwarden Password Manager'"

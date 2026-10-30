@@ -11,7 +11,7 @@ ARG BASE_TAG="stable"
 # Temp Monitor (https://github.com/venkateshguggilla/temp-monitor), built from a pinned
 # commit so upstream changes only reach the OS when this ref is bumped. Unit tests must pass.
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS temp-monitor
-ARG TEMP_MONITOR_REF="3a500e64088415cd3f7bee0aa04f8d2973a1d38a"
+ARG TEMP_MONITOR_REF="189c5bdc63b7b7d0757bb211139ee511c3040d99"
 WORKDIR /src
 RUN git init -q . \
     && git fetch -q --depth 1 https://github.com/venkateshguggilla/temp-monitor.git "${TEMP_MONITOR_REF}" \

@@ -40,10 +40,12 @@ endpoints() {
 
 build_rules() {
     local v4=() v6=() ports=() ifaces=() uuid iface host port addr
+    # VPN settings can be edited without admin approval, so only plain values go into the rules
     while IFS=$'\t' read -r uuid iface; do
-        [[ -n "${iface}" ]] && ifaces+=("\"${iface}\"")
+        [[ "${iface}" =~ ^[A-Za-z0-9_.-]{1,15}$ ]] && ifaces+=("\"${iface}\"")
         while read -r host port; do
             [[ -n "${host}" ]] || continue
+            [[ "${port}" =~ ^[0-9]{1,5}$ ]] && (( port >= 1 && port <= 65535 )) || continue
             ports+=("${port}")
             while read -r addr; do
                 if [[ "${addr}" == *:* ]]; then v6+=("${addr}"); else v4+=("${addr}"); fi

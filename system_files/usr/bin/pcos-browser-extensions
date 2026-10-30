@@ -97,6 +97,9 @@ approve)
         url="${2:-}"
     fi
     [[ -n "${id}" ]] || die "Couldn't find the extension id."
+    # Firefox extension ids look like {uuid} or name@domain; the install link must be https
+    [[ "${id}" =~ ^(\{[0-9A-Fa-f-]{36}\}|[A-Za-z0-9._+-]*@[A-Za-z0-9._-]+)$ ]] || die "Not a Firefox extension id: ${id}"
+    [[ -z "${url}" || "${url}" =~ ^https://[^[:space:]]+$ ]] || die "The install link must start with https://"
     approved_json | jq --arg id "${id}" --arg name "${name}" --arg url "${url}" \
         '.[$id] = ({ name: $name } + (if $url == "" then {} else { install_url: $url } end))' | save_approved
     apply

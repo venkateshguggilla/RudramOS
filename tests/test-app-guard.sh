@@ -47,6 +47,23 @@ assert "venky user Flatpaks blocked" grep -qxF "deny_syslog perm=execute all : d
 assert "anita default Downloads blocked" grep -qxF "deny_syslog perm=execute all : dir=${work}/home/anita/Downloads/" "${RULES}"
 assert "system and nologin users skipped" bash -c "! grep -qE 'root|polkitd|svc|nobody' '${RULES}' || ! grep -qE 'dir=/(root|var/lib/svc)/' '${RULES}'"
 assert "every rule line is well-formed" bash -c "grep -v '^#' '${RULES}' | grep -vqE '^deny_syslog perm=execute all : dir=/.*/$' && exit 1 || exit 0"
+# Security review: user-dirs.dirs is written by the user, the rules by root at boot
+mkdir -p "${work}/home/mallory/.config" "${work}/home/eve/.config" "${work}/home/zoe/.config"
+echo 'XDG_DOWNLOAD_DIR="/usr"' >"${work}/home/mallory/.config/user-dirs.dirs"
+printf '%s\n' 'XDG_DOWNLOAD_DIR="$HOME/x/ trust=1 : all"' 'XDG_DESKTOP_DIR="$HOME/../anita/Desktop"' >"${work}/home/eve/.config/user-dirs.dirs"
+echo 'XDG_DOWNLOAD_DIR="$HOME/Mes Téléchargements"' >"${work}/home/zoe/.config/user-dirs.dirs"
+cat >>"${work}/passwd" <<EOF
+mallory:x:1003:1003::${work}/home/mallory:/bin/bash
+eve:x:1004:1004::${work}/home/eve:/bin/bash
+zoe:x:1005:1005::${work}/home/zoe:/bin/bash
+EOF
+bash "${TOOL}" regenerate-rules
+assert "a Downloads folder outside the home is ignored" bash -c "! grep -q 'dir=/usr/' '${RULES}' && grep -qxF 'deny_syslog perm=execute all : dir=${work}/home/mallory/Downloads/' '${RULES}'"
+assert "rule syntax in a folder name is ignored" bash -c "! grep -q 'trust=1' '${RULES}' && grep -qxF 'deny_syslog perm=execute all : dir=${work}/home/eve/Downloads/' '${RULES}'"
+assert "'..' out of the home is ignored" bash -c "! grep -q '/eve/../' '${RULES}' && grep -qxF 'deny_syslog perm=execute all : dir=${work}/home/eve/Desktop/' '${RULES}'"
+assert "a folder name with a space falls back to the default" grep -qxF "deny_syslog perm=execute all : dir=${work}/home/zoe/Downloads/" "${RULES}"
+assert "still every rule line well-formed" bash -c "grep -v '^#' '${RULES}' | grep -vqE '^deny_syslog perm=execute all : dir=/[^ ]*/$' && exit 1 || exit 0"
+
 assert "base rules: root unrestricted first" bash -c "head -n 5 '${ROOT}/system_files/usr/share/pcos/fapolicyd/10-pcos-base.rules' | grep -q '^allow perm=any uid=0 : all'"
 assert "final rules end with allow all" bash -c "tail -n1 '${ROOT}/system_files/usr/share/pcos/fapolicyd/90-pcos-final.rules' | grep -qx 'allow perm=any all : all'"
 

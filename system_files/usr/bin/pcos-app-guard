@@ -36,7 +36,12 @@ user_dir() {
     local home="$1" key="$2" fallback="$3" value
     value=$(sed -n "s/^${key}=\"\(.*\)\"$/\1/p" "${home}/.config/user-dirs.dirs" 2>/dev/null | head -n1)
     value="${value//\$HOME/${home}}"
-    if [[ -z "${value}" || "${value}" == "${home}" || "${value}" == "${home}/" ]]; then
+    # The user writes this file, and the result goes into fapolicyd's rules (as root, at boot).
+    # Accept only a folder inside their own home without spaces, control characters or rule
+    # syntax: a path elsewhere (e.g. /usr) would block programs for every user, and a broken
+    # rule line could stop fapolicyd. Anything else falls back to the default folder name.
+    local bad=$'[[:space:][:cntrl:]="\'\\\\:]'
+    if [[ "${value}" != "${home}/"?* || "${value}" =~ ${bad} || "/${value}/" == *"/../"* || "/${value}/" == *"/./"* ]]; then
         value="${home}/${fallback}"
     fi
     echo "${value%/}"
@@ -85,6 +90,8 @@ approve)
     [[ $# -eq 1 ]] || die "usage: $(basename "$0") approve <file>"
     file=$(realpath -e -- "$1" 2>/dev/null) || die "No such file: $1"
     [[ -f "${file}" ]] || die "Not a regular file: ${file}"
+    # A line break in the name would split its line in the trust file (path size sha256)
+    [[ ! "${file}" =~ [[:cntrl:]] ]] || die "Rename the file first: its name contains a line break or control character."
     if approved_paths | grep -qxF -- "${file}"; then
         fapolicyd-cli --file update "${file}" --trust-file "$(basename "${TRUST_FILE}")"
     else

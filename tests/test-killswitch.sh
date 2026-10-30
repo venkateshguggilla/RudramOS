@@ -17,9 +17,13 @@ case "$*" in
     echo "aaaa:802-11-wireless"
     [[ -z "${NO_VPN:-}" ]] && { echo "wwww:wireguard"; echo "vvvv:wireguard"; } ;;
 "-g connection.interface-name connection show wwww") echo "proton0" ;;
-"-g connection.interface-name connection show vvvv") echo "wg-home" ;;
+"-g connection.interface-name connection show vvvv")
+    # EVIL: VPN settings a user can edit without admin approval, made to break out of the rules
+    if [[ -n "${EVIL:-}" ]]; then echo 'x" } accept #'; else echo "wg-home"; fi ;;
 "-g wireguard.peers connection show wwww") echo 'AbCd= endpoint=vpn.example.net:51820 allowed-ips=0.0.0.0/0;::/0' ;;
-"-g wireguard.peers connection show vvvv") echo 'EfGh= endpoint=[2001:db8::5]:443 allowed-ips=10.8.0.0/24' ;;
+"-g wireguard.peers connection show vvvv")
+    if [[ -n "${EVIL:-}" ]]; then echo 'EfGh= endpoint=[2001:db8::5]:99999 allowed-ips=10.8.0.0/24'
+    else echo 'EfGh= endpoint=[2001:db8::5]:443 allowed-ips=10.8.0.0/24'; fi ;;
 esac
 EOF
 cat >"${work}/bin/getent" <<'EOF'
@@ -68,6 +72,13 @@ assert "status on" bash -c "bash '${TOOL}' status | grep -q 'kill switch: on'"
 assert "turning on again replaces the table" bash -c "bash '${TOOL}' on && grep -c 'delete table inet pcos_killswitch' '${NFT_LOG}' | grep -q 1"
 assert "rejected rules leave state unchanged" bash -c "cp '${RULES}' '${work}/before' && ! NFT_REJECT=1 bash '${TOOL}' on && cmp -s '${RULES}' '${work}/before'"
 assert "turn off" bash -c "bash '${TOOL}' off && [ ! -e '${NFT_STATE}' ] && [ ! -e '${RULES}' ] && grep -qx 'disable pcos-killswitch.service' '${SYSTEMCTL_LOG}'"
+# Security review: interface names and ports come from user-editable VPN settings
+assert "on, with hostile VPN settings" bash -c "EVIL=1 bash '${TOOL}' on"
+assert "  an interface name with rule syntax is left out" bash -c "! grep -qF 'x\"' '${RULES}' && grep -qF 'oifname { \"wg*\", \"tun*\", \"proton0\" } accept' '${RULES}'"
+assert "  an out-of-range port is left out" bash -c "! grep -q 99999 '${RULES}' && grep -qF 'udp dport { 51820 } accept' '${RULES}'"
+assert "  and its server isn't allowed either" bash -c "! grep -qF '2001:db8::5' '${RULES}'"
+bash "${TOOL}" off >/dev/null 2>&1
+
 assert "load with no saved rules does nothing" bash -c "bash '${TOOL}' load && [ ! -e '${NFT_STATE}' ]"
 assert "not root refused" bash -c "! PCOS_TEST_ROOT=0 bash '${TOOL}' on"
 

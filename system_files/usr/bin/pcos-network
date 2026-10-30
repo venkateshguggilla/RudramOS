@@ -95,7 +95,9 @@ status)
 trust)
     require_root "${cmd}"
     [[ $# -eq 2 && ( "$2" == home || "$2" == public ) ]] || die "usage: $(basename "$0") trust <network name or UUID> home|public"
-    info=$(nmcli -g connection.uuid,connection.id connection show "$1" 2>/dev/null) || die "No such network: $1"
+    # "uuid"/"id" keep a name that starts with "-" from being read as an nmcli option
+    if [[ "$1" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]]; then by=uuid; else by=id; fi
+    info=$(nmcli -g connection.uuid,connection.id connection show "${by}" "$1" 2>/dev/null) || die "No such network: $1"
     uuid=$(sed -n 1p <<<"${info}")
     name=$(sed -n 2p <<<"${info}")
     [[ -n "${uuid}" ]] || die "No such network: $1"

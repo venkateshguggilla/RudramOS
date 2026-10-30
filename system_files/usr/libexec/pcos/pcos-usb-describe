@@ -28,8 +28,24 @@ ifaces=$(sed -nE 's/.* with-interface (\{[^}]*\}|[0-9a-f:]+).*/\1/p' <<<"${rule}
 
 has() { grep -qE "(^| )$1" <<<" ${ifaces} "; }
 
-kinds=()
+# A device can claim any vendor id, so a "security key" must also look like one: only HID
+# (FIDO, OTP keyboard) and smart-card interfaces. A security-key maker's id on anything else
+# (storage, network, ...) is a disguised device.
+only_key_interfaces() {
+    local i
+    [[ -n "${ifaces// /}" ]] || return 1
+    for i in ${ifaces}; do
+        [[ "${i}" == 03:* || "${i}" == 0b:* ]] || return 1
+    done
+}
+is_key=0
+disguised=0
 if security_key "${vidpid}"; then
+    if only_key_interfaces; then is_key=1; else disguised=1; fi
+fi
+
+kinds=()
+if (( is_key )); then
     kinds+=("Security key")
 else
     has '03:01:01' && kinds+=("Keyboard")
@@ -53,7 +69,10 @@ kind=$(IFS='+'; echo "${kinds[*]}" | sed 's/+/ + /g')
 
 level=ok
 message="Allow it if you just plugged it in and it's yours."
-if security_key "${vidpid}"; then
+if (( disguised )); then
+    level=danger
+    message="It claims to be a security key, but a real one can't also be $(sed 's/ + / or /g' <<<"${kind}" | tr '[:upper:]' '[:lower:]'). This is a common USB attack: block it."
+elif (( is_key )); then
     message="A security key. Allowing it is always permanent so it can approve admin actions."
 elif has '08:' && has '03:01:01'; then
     level=danger

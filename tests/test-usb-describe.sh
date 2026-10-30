@@ -31,6 +31,17 @@ check "BadUSB: storage that types" "Keyboard + Storage" danger \
     'block id 1b4f:9206 serial "" name "Flash Disk" hash "x" parent-hash "y" with-interface { 08:06:50 03:01:01 } with-connect-type "hotplug"'
 check "YubiKey 5 (keyboard + FIDO + CCID)" "Security key" ok \
     'block id 1050:0407 serial "" name "YubiKey OTP+FIDO+CCID" hash "x" parent-hash "y" with-interface { 03:01:01 03:00:00 0b:00:00 } with-connect-type "hotplug"'
+check "FIDO-only key (Google Titan style)" "Security key" ok \
+    'block id 18d1:5026 serial "" name "Titan Security Key" hash "x" parent-hash "y" with-interface 03:00:00 with-connect-type "hotplug"'
+# Security review: a vendor id is easy to fake, so the interfaces must fit a security key too
+check "fake 'YubiKey' that is a keyboard + storage" "Keyboard + Storage" danger \
+    'block id 1050:0407 serial "" name "YubiKey OTP+FIDO+CCID" hash "x" parent-hash "y" with-interface { 03:01:01 08:06:50 } with-connect-type "hotplug"'
+check "fake 'YubiKey' that is a network adapter" "Network adapter" danger \
+    'block id 1050:0407 serial "" name "YubiKey" hash "x" parent-hash "y" with-interface { 02:06:00 0a:00:00 } with-connect-type "hotplug"'
+check "security-key maker id without any interfaces" "Unknown device" danger \
+    'block id 1050:0407 serial "" name "YubiKey" hash "x" parent-hash "y"'
+msg=$(bash "${TOOL}" 'block id 1050:0407 serial "" name "YubiKey" with-interface { 03:01:01 08:06:50 }' | cut -f4)
+if [[ "${msg}" == *"claims to be a security key"* ]]; then echo "ok   disguise explained"; else echo "FAIL disguise message: ${msg}"; failures=$((failures + 1)); fi
 check "phone tethering (RNDIS)" "Network adapter" caution \
     'block id 18d1:4ee3 serial "ABC" name "Pixel 8" hash "x" parent-hash "y" with-interface { e0:01:03 0a:00:00 } with-connect-type "hotplug"'
 check "storage that is also a network adapter" "Storage + Network adapter" danger \
