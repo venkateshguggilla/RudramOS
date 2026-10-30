@@ -1,9 +1,11 @@
 #!/bin/bash
 # After the rename to RudramOS: moves a PC that still follows an old image name
 # (ghcr.io/venkateshguggilla/pcos, -nvidia, -nvidia-legacy) to the new one (rudramos...).
-# It's the same image with the same signing key; only where updates come from changes, and
-# nothing is downloaded now (bootc switch --mutate-in-place). It waits until the new name can
-# actually be downloaded, so updates never stop. Runs from pcos-image-rename.timer.
+# It's the same image with the same signing key; only where updates come from changes. The
+# switch downloads the new name's latest build and applies it at the next reboot, like an update
+# (--mutate-in-place would skip the download, but it fails on a running PC: it writes to /sysroot
+# without making it writable). It waits until the new name can actually be downloaded, so updates
+# never stop. Runs from pcos-image-rename.timer.
 set -euo pipefail
 
 OLD="${PCOS_OLD_IMAGE:-ghcr.io/venkateshguggilla/pcos}"
@@ -21,5 +23,5 @@ if ! skopeo inspect --retry-times 2 --no-tags "docker://${new}" >/dev/null 2>&1;
     exit 0
 fi
 
-bootc switch --mutate-in-place --enforce-container-sigpolicy --transport registry "${new}"
-echo "Updates now come from ${new} (was ${spec})"
+bootc switch --enforce-container-sigpolicy --transport registry "${new}"
+echo "Updates now come from ${new} (was ${spec}); it applies at the next reboot"

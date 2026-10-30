@@ -33,7 +33,8 @@ export PATH="${work}/bin:${PATH}" SWITCHED="${work}/switched"
 run() { rm -f "${SWITCHED}"; SPEC="$1" NEW_AVAILABLE="${2:-1}" bash "${TOOL}"; }
 
 run "ghcr.io/venkateshguggilla/pcos-nvidia-legacy:latest" >/dev/null
-assert "old legacy NVIDIA name moves to rudramos-nvidia-legacy" grep -q -- "--mutate-in-place --enforce-container-sigpolicy --transport registry ghcr.io/venkateshguggilla/rudramos-nvidia-legacy:latest" "${SWITCHED}"
+assert "no in-place switch (it fails on a running PC: read-only /sysroot)" bash -c "! grep -q -- --mutate-in-place \"${SWITCHED}\""
+assert "old legacy NVIDIA name moves to rudramos-nvidia-legacy" grep -q -- "--enforce-container-sigpolicy --transport registry ghcr.io/venkateshguggilla/rudramos-nvidia-legacy:latest" "${SWITCHED}"
 run "ghcr.io/venkateshguggilla/pcos:latest" >/dev/null
 assert "standard image moves to rudramos" grep -q "ghcr.io/venkateshguggilla/rudramos:latest" "${SWITCHED}"
 run "ghcr.io/venkateshguggilla/pcos-nvidia:20261020" >/dev/null
